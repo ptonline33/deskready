@@ -1,0 +1,417 @@
+{
+  "id": "dbt",
+  "title": "dbt Analytics Engineering",
+  "subtitle": "Weeks 19-22: tested, versioned SQL transformations",
+  "color": "#ff694a",
+  "order": 20,
+  "description": "Turn raw tables into a documented, tested warehouse with dbt: models and the DAG, sources and staging, materializations including incremental, tests as quality gates, docs and lineage, and macros with snapshots for slowly changing dimensions.",
+  "lessons": [
+    {
+      "title": "What dbt Is",
+      "body": "**dbt** (data build tool) does the `T` in ELT. Your extract and load tools have already put raw data into the warehouse; dbt turns that raw data into clean, tested, documented tables using **SQL** that you version in Git rather than a drag-and-drop GUI.\n\nEach dbt **model** is a single `.sql` file containing one `SELECT`. That is the whole trick: you write the transformation, and dbt wraps it in the `CREATE TABLE`, `CREATE VIEW` or merge statement needed to build it. The filename becomes the relation name.\n\nModels reference each other with `ref()`, and this creates the **DAG** (directed acyclic graph), the map of dependencies:\n\n```sql\n-- models/marts/fct_orders.sql\nselect\n    o.order_id,\n    o.order_date,\n    c.customer_name\nfrom {{ ref('stg_orders') }} as o\njoin {{ ref('stg_customers') }} as c using (customer_id)\n```\n\n`ref()` does two jobs. First, it resolves at compile time to the correct database and schema, so the same code is portable between your laptop and production. Second, it registers the dependency, so `dbt run` builds `stg_orders` and `stg_customers` **before** `fct_orders`. You never work out build order by hand, and you cannot accidentally introduce a cycle.\n\n**dbt Core** is the open-source engine you run from the command line; **dbt Cloud** wraps it with a web IDE, scheduling and a hosted docs site. The SQL and project files are identical, so learning Core teaches you both.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What two things does `ref('stg_orders')` do?",
+          "options": [
+            "Resolves to the correct table name and registers a dependency in the DAG",
+            "Copies the rows at build time and deletes the source table",
+            "Connects to the warehouse and runs the query immediately",
+            "Hashes the model name and stores it as a snapshot"
+          ],
+          "answer": 0,
+          "explain": "ref() both resolves the reference at compile time (portable across environments) and tells dbt the dependency, which sets the build order.",
+          "hint": "One half is about naming, the other is about ordering."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why is the collection of dbt models called a DAG?",
+          "options": [
+            "Because ref() links models into a directed graph with no cycles",
+            "Because models always run in alphabetical order",
+            "Because each model stores its own database copy",
+            "Because dbt compiles the SQL into machine code"
+          ],
+          "answer": 0,
+          "explain": "Each model is a node and each ref() an edge pointing one way. Acyclic means no model can depend on itself, directly or indirectly.",
+          "hint": "D-A-G: directed, acyclic graph."
+        },
+        {
+          "type": "input",
+          "prompt": "What file extension does a dbt model use? (include the dot)",
+          "answers": [
+            ".sql"
+          ],
+          "hint": "It is just a query file.",
+          "explain": "A model is a plain .sql file holding one SELECT; dbt supplies the surrounding DDL when it runs."
+        },
+        {
+          "type": "order",
+          "prompt": "The DAG has stg_customers and stg_orders feeding int_orders_joined, which feeds fct_orders. Put the models in build order.",
+          "items": [
+            "stg_customers and stg_orders (the sources of the graph)",
+            "int_orders_joined",
+            "fct_orders"
+          ],
+          "explain": "dbt builds upstream models first. `int_orders_joined` cannot run until both staging models exist, and `fct_orders` depends on the intermediate.",
+          "hint": "Nothing downstream can run before the models it refs."
+        }
+      ]
+    },
+    {
+      "title": "Project Setup and the First Model",
+      "body": "Creating a project starts with `dbt init my_project`, which scaffolds the folders and an entry in `profiles.yml`. The **`dbt_project.yml`** file at the project root names the project and sets defaults, including the default materialization for each folder:\n\n```yaml\nname: 'deskready'\nversion: '1.0.0'\nprofile: 'deskready'\nmodels:\n  deskready:\n    staging:\n      +materialized: view\n    marts:\n      +materialized: table\n```\n\n**`profiles.yml`** (usually in `~/.dbt/`, kept out of Git) holds the connection: warehouse type, host, database, schema and credentials. It separates *what* to build from *where* to build it, so the same project can target your laptop and production.\n\nBefore running models, `dbt debug` checks that dbt can reach the warehouse and parse the project - a fast way to catch a bad profile or a missing package.\n\nYour first model is just a `SELECT`:\n\n```sql\n-- models/marts/my_first_model.sql\nselect 1 as id, 'hello' as greeting\n```\n\nRun it with `dbt run`. The difference between materializations is what gets created in the warehouse: a **view** is a saved query that re-runs every time it is read (cheap to build, always current, slower to query), while a **table** is physically written and rebuilt on each run (slower to build, fast to query). Staging usually uses views; marts usually use tables.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is `dbt_project.yml` for?",
+          "options": [
+            "Naming the project and setting defaults such as materializations per folder",
+            "Storing the warehouse password and host",
+            "Listing column-level tests for each model",
+            "Defining reusable Jinja macros"
+          ],
+          "answer": 0,
+          "explain": "dbt_project.yml is project configuration: its name, version, profile and defaults like +materialized for folders. Credentials live in profiles.yml.",
+          "hint": "Which file is configuration, and which holds secrets?"
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that checks dbt can connect to the warehouse and parse the project",
+          "answers": [
+            "dbt debug"
+          ],
+          "caseSensitive": true,
+          "hint": "Two words: dbt plus a verb for diagnosing.",
+          "explain": "dbt debug validates the profile, connection and project parsing before you waste a run on a broken setup."
+        },
+        {
+          "type": "mcq",
+          "prompt": "When would you prefer a view over a table materialization?",
+          "options": [
+            "When the model is small and you want it always current without extra storage",
+            "When the model is huge and queried by many dashboards",
+            "When the model must never re-run",
+            "When the model needs to be inlined as a CTE"
+          ],
+          "answer": 0,
+          "explain": "Views store only the query, cost nothing extra to hold and always reflect upstream data - ideal for lightweight staging. Large, frequently queried marts are better as tables.",
+          "hint": "Cheap to build and always fresh, but slower to read."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the steps to get a brand-new dbt project running",
+          "items": [
+            "Run dbt init to scaffold the project",
+            "Configure the connection in profiles.yml",
+            "Run dbt debug to confirm the connection works",
+            "Add a model and run dbt run"
+          ],
+          "explain": "Scaffold, connect, verify, then build. Debugging before running means connection errors surface on their own, not tangled with model errors.",
+          "hint": "Set up, then verify, then execute."
+        }
+      ]
+    },
+    {
+      "title": "Sources, Staging and ref()",
+      "body": "Raw data lands in your warehouse as **sources** - the tables your extract/load tools wrote. You declare them in a YAML file so dbt knows they exist and can track their freshness:\n\n```yaml\n# models/staging/sources.yml\nsources:\n  - name: raw\n    database: analytics\n    schema: raw\n    tables:\n      - name: orders\n      - name: customers\n```\n\nYou then reference them with `source('raw', 'orders')`, never a hard-coded table name. This puts the raw tables on the DAG, so lineage shows the true journey from landing zone to report.\n\n**Staging models** are the first transformation: one staging model per source table, doing only light, consistent cleaning - rename columns to a common convention, cast types, trim values. Nothing is joined or aggregated here.\n\n```sql\n-- models/staging/stg_orders.sql\nselect\n    id            as order_id,\n    customer_id,\n    cast(created_at as timestamp) as created_at,\n    lower(status) as status\nfrom {{ source('raw', 'orders') }}\n```\n\nWhy the discipline? If every downstream model reads cleanly named, correctly typed staging data, business logic stays in one place and a raw-format change touches a single file. Staging models are usually materialised as **views**, adding no storage. The rule of thumb: **staging models should only clean, never join.** Joins and aggregates belong further down, in intermediate and mart models.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `source('raw', 'orders')` refer to?",
+          "options": [
+            "A raw table that dbt did not create, declared in a sources.yml file",
+            "A model called orders in the raw folder",
+            "A seed CSV loaded with dbt seed",
+            "A snapshot of the orders table"
+          ],
+          "answer": 0,
+          "explain": "source() points at externally loaded data, declared under `sources:`. That places the raw table on the lineage graph as an origin node.",
+          "hint": "It is data you did not build - the EL tools did."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which task belongs in a staging model?",
+          "options": [
+            "Renaming columns, casting types and trimming whitespace",
+            "Joining orders to customers and aggregating totals",
+            "Applying business rules about valid customer tiers",
+            "Creating the final dashboard-ready fact table"
+          ],
+          "answer": 0,
+          "explain": "Staging models only clean and standardise one source table each. Joins, aggregates and business logic live in intermediate and mart models.",
+          "hint": "If it needs another table, it is not staging."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a staging model that selects from the `raw` source `orders`, renaming `id` to `order_id` and casting `created_at` to a timestamp.",
+          "patterns": [
+            {
+              "re": "source\\(\\s*['\\\"]raw['\\\"]\\s*,\\s*['\\\"]orders['\\\"]\\s*\\)",
+              "m": "Select from source('raw', 'orders')."
+            },
+            {
+              "re": "\\bas\\s+order_id\\b",
+              "m": "Rename the id column to order_id."
+            },
+            {
+              "re": "cast\\([^)]*as\\s+timestamp\\)",
+              "m": "Cast created_at to timestamp."
+            },
+            {
+              "re": "\\bfrom\\b",
+              "m": "Include a FROM clause."
+            }
+          ],
+          "solution": "select\n    id as order_id,\n    cast(created_at as timestamp) as created_at\nfrom {{ source('raw', 'orders') }}",
+          "explain": "The staging model cleans and standardises a single source: renamed key, corrected type, and a source() reference so the raw table appears on the DAG.",
+          "hint": "Use source('raw', 'orders'), alias id as order_id, and cast created_at."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the conventional filename that declares dbt sources?",
+          "answers": [
+            "sources.yml",
+            "sources.yaml"
+          ],
+          "hint": "A YAML file named after what it describes.",
+          "explain": "By convention sources are declared in sources.yml inside a staging or models folder, though any .yml under the project is read."
+        }
+      ]
+    },
+    {
+      "title": "Materializations in Depth",
+      "body": "Materializations decide how a model is physically stored. dbt offers four main choices.\n\n- **view** - a saved query, rebuilt cheaply and always current. Good for staging and small models.\n- **table** - dropped and fully rebuilt each run; fast to query, expensive to rebuild when large. Good for marts.\n- **ephemeral** - not built at all; the model is inlined as a CTE into the models that ref it. Good for tiny helpers you do not want cluttering the warehouse.\n- **incremental** - the first run builds a table; later runs insert or update only new rows.\n\nIncremental is where the real value lies for large fact tables. You filter to isolate the new data, guarded by `is_incremental()`, which is true only on runs after the first:\n\n```sql\n{{ config(materialized='incremental', unique_key='order_id') }}\n\nselect * from {{ ref('stg_orders') }}\n{% if is_incremental() %}\nwhere updated_at > (select max(updated_at) from {{ this }})\n{% endif %}\n```\n\n`unique_key` tells dbt which column identifies a row, so an updated order replaces the old one instead of duplicating it; you also choose the strategy (merge or delete+insert). `{{ this }}` refers to the existing table. Choose a materialization by asking how often the data changes, how big the table is, and how fast queries must be.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which materialization creates no relation in the warehouse at all?",
+          "options": [
+            "ephemeral",
+            "view",
+            "table",
+            "incremental"
+          ],
+          "answer": 0,
+          "explain": "An ephemeral model is never built; its SQL is inlined as a CTE wherever it is ref'd, so it exists only at compile time.",
+          "hint": "It has no physical home, just a borrowed CTE."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is `is_incremental()` for?",
+          "options": [
+            "It is true only on runs after the first build, so the new-data filter applies then",
+            "It checks whether the model is a view or a table",
+            "It rebuilds the whole table from scratch",
+            "It compares row counts between two models"
+          ],
+          "answer": 0,
+          "explain": "On the first run the table does not exist yet, so is_incremental() is false and the full SELECT runs. On later runs it is true and only new rows are selected.",
+          "hint": "It guards the WHERE clause that isolates new rows."
+        },
+        {
+          "type": "input",
+          "prompt": "Which config key tells dbt the column that uniquely identifies a row, so an update replaces rather than duplicates?",
+          "answers": [
+            "unique_key",
+            "unique key"
+          ],
+          "hint": "Two words joined: the property of the column and the word key.",
+          "explain": "unique_key names the column dbt merges on. Without it, an incremental model typically appends duplicates instead of updating rows."
+        },
+        {
+          "type": "order",
+          "prompt": "Order what happens across two runs of an incremental model",
+          "items": [
+            "First run: is_incremental() is false, so the table is built with all rows",
+            "Second run: is_incremental() is true, so the new-data filter applies",
+            "Only rows newer than the current max are selected",
+            "Rows are merged on unique_key, updating existing keys"
+          ],
+          "explain": "The first build is a full load; every later run is a delta. unique_key turns that delta into updates rather than duplicate rows.",
+          "hint": "Full load first, delta next, then merge."
+        }
+      ]
+    },
+    {
+      "title": "Tests and Data Quality",
+      "body": "Tests are SQL assertions that run against your models. dbt ships four **generic** tests you apply in YAML:\n\n```yaml\nmodels:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        tests:\n          - unique\n          - not_null\n      - name: customer_id\n        tests:\n          - relationships:\n              to: ref('stg_customers')\n              field: customer_id\n      - name: status\n        tests:\n          - accepted_values:\n              values: ['pending', 'shipped', 'cancelled']\n```\n\n`unique` fails if a value repeats, `not_null` if any value is missing, `relationships` (a **referential-integrity** check) if a foreign key has no matching row, and `accepted_values` if a value falls outside the allowed list. Each test is really a query that must return **zero** rows; any row returned is a failure, and dbt shows you a sample of the offending rows.\n\nYou can write **singular tests** as a SQL file under `tests/` for anything specific - for example, proving no order was shipped before it was created.\n\nRun `dbt test` after `dbt run`, or use **`dbt build`**, which runs and tests together and, crucially, skips downstream models when an upstream test fails. Treat tests as gates in production: a failure should block the pipeline, not just log a warning.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which built-in test checks that a foreign key has a matching row in another table?",
+          "options": [
+            "relationships",
+            "unique",
+            "not_null",
+            "accepted_values"
+          ],
+          "answer": 0,
+          "explain": "relationships compares the column against a `to: ref(...)` table and `field`, enforcing referential integrity.",
+          "hint": "It is about a link between two tables."
+        },
+        {
+          "type": "mcq",
+          "prompt": "How does `dbt build` differ from `dbt run` followed by `dbt test`?",
+          "options": [
+            "build interleaves runs and tests, skipping downstream models when an upstream test fails",
+            "build only runs tests and never builds models",
+            "build always rebuilds from scratch ignoring state",
+            "build runs tests first and models last"
+          ],
+          "answer": 0,
+          "explain": "dbt build runs each node with its tests and stops propagating bad data: if a staging test fails, models downstream of it are skipped.",
+          "hint": "It controls the flow of bad data, not just the order."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a YAML test block that asserts `order_id` is both `unique` and `not_null`, and that `status` only contains values from a list.",
+          "patterns": [
+            {
+              "re": "\\bunique\\b",
+              "m": "Include the unique test."
+            },
+            {
+              "re": "\\bnot_null\\b",
+              "m": "Include the not_null test."
+            },
+            {
+              "re": "\\baccepted_values\\b",
+              "m": "Include the accepted_values test."
+            }
+          ],
+          "solution": "models:\n  - name: stg_orders\n    columns:\n      - name: order_id\n        tests:\n          - unique\n          - not_null\n      - name: status\n        tests:\n          - accepted_values:\n              values: ['pending', 'shipped', 'cancelled']",
+          "explain": "Tests hang off columns in the model's YAML. unique + not_null make order_id a true primary key; accepted_values constrains status to known values.",
+          "hint": "Three test names, each written exactly as dbt spells it."
+        },
+        {
+          "type": "input",
+          "prompt": "How many rows must a passing dbt test return?",
+          "answers": [
+            "0",
+            "zero"
+          ],
+          "hint": "A test fails if it finds any offending row.",
+          "explain": "A generic test is a query hunting for bad rows; returning zero rows means no violations and the test passes."
+        }
+      ]
+    },
+    {
+      "title": "Docs, Lineage and Exposures",
+      "body": "Documentation and lineage are why a dbt project is still navigable months later. Descriptions live next to the model, in the same YAML as its tests:\n\n```yaml\nmodels:\n  - name: fct_orders\n    description: One row per order, with customer and line totals.\n    columns:\n      - name: order_id\n        description: Primary key.\n```\n\nYou can also write a `{% docs %}` block in a Markdown file and reference it with `{{ doc('...') }}`, so a definition is written once and reused across models.\n\n`dbt docs generate` compiles descriptions, column types and the DAG into a website; `dbt docs serve` opens it locally. The **lineage graph** draws every model, source and test as a node and every `ref()` as an edge, colour-coded by resource type. Clicking a node reveals its description, columns and compiled SQL - the fastest way to answer \"where does this column come from?\".\n\n**Exposures** extend the graph beyond the warehouse. They declare external consumers, such as a BI dashboard, so lineage shows which reports a model feeds:\n\n```yaml\nexposures:\n  - name: revenue_dashboard\n    type: dashboard\n    depends_on:\n      - ref('fct_orders')\n    owner:\n      email: data@example.com\n```\n\nNow a change to `fct_orders` visibly threatens `revenue_dashboard`, which is exactly the context a reviewer needs before approving a pull request.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which command compiles descriptions, column types and the DAG into the docs website?",
+          "options": [
+            "dbt docs generate",
+            "dbt docs serve",
+            "dbt run --docs",
+            "dbt test --docs"
+          ],
+          "answer": 0,
+          "explain": "generate builds the catalog and manifest into static files; serve then opens them. You generate first, then serve.",
+          "hint": "One command creates the site, the other opens it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is an exposure?",
+          "options": [
+            "A declaration of an external consumer, such as a dashboard, that depends on your models",
+            "A test that checks for exposed secrets",
+            "A materialization that exposes a table publicly",
+            "A snapshot of a slowly changing dimension"
+          ],
+          "answer": 0,
+          "explain": "Exposures record downstream consumers outside dbt - dashboards, reports, ML jobs - so lineage shows the impact of changing a model.",
+          "hint": "It maps what consumes your data outside the warehouse."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the documentation workflow",
+          "items": [
+            "Add descriptions to models in their YAML files",
+            "Run dbt docs generate to build the site",
+            "Run dbt docs serve to open it locally",
+            "Explore the lineage graph and click into a model"
+          ],
+          "explain": "Descriptions are authored in YAML, compiled by generate, then browsed with serve, where the lineage graph links everything together.",
+          "hint": "Write, generate, serve, explore."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that opens the generated dbt documentation site locally",
+          "answers": [
+            "dbt docs serve"
+          ],
+          "caseSensitive": true,
+          "hint": "The same docs subcommand used to generate, with a different verb.",
+          "explain": "dbt docs serve starts a local web server for the generated docs and lineage graph."
+        }
+      ]
+    },
+    {
+      "title": "Macros, Jinja and Snapshots",
+      "body": "**Jinja** makes model SQL a template. `{{ ... }}` prints a value; `{% ... %}` runs logic. `{{ ref('x') }}` and `{{ source(...) }}` are themselves Jinja, and so are loops and conditionals:\n\n```sql\nselect\n  order_id,\n  {% for status in ['pending', 'shipped', 'cancelled'] %}\n  sum(case when status = '{{ status }}' then 1 else 0 end) as {{ status }}_count\n  {% if not loop.last %},{% endif %}\n  {% endfor %}\nfrom {{ ref('stg_orders') }}\ngroup by 1\n```\n\n**Macros** are reusable Jinja functions, defined in `macros/` with `{% macro %}` and called with `{{ }}`. The `dbt_utils` package is a library of common ones, such as `dbt_utils.generate_surrogate_key`. A macro fixes logic in one place and can be tested.\n\n**Seeds** are small CSV files in `seeds/` that dbt loads as tables - perfect for a country-code lookup. **vars** are project variables passed with `--vars` or set in `dbt_project.yml`, handy for a date cutoff. **targets** in `profiles.yml` define named environments (dev, prod), selected with `--target`.\n\n**Snapshots** capture **slowly changing dimensions (SCD-2)**: they watch a table and, when a tracked column changes, close the old row with a `dbt_valid_to` timestamp and insert a new current row. That preserves history - the customer's plan as it was on the order date - which an overwriting table destroys.\n\n```yaml\n{% snapshot customers_snapshot %}\n{{ config(target_schema='snapshots', unique_key='customer_id', strategy='timestamp', updated_at='updated_at') }}\nselect * from {{ source('raw', 'customers') }}\n{% endsnapshot %}\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between `{{ ... }}` and `{% ... %}` in Jinja?",
+          "options": [
+            "{{ }} prints a value; {% %} runs logic such as a loop or an if",
+            "{{ }} runs logic; {% %} prints a value",
+            "They are interchangeable",
+            "{{ }} is for SQL and {% %} is for Python"
+          ],
+          "answer": 0,
+          "explain": "Double braces output an expression into the compiled SQL; statement tags execute control flow and produce nothing on their own.",
+          "hint": "Braces print, percent tags command."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does a dbt snapshot do?",
+          "options": [
+            "Implements SCD-2, keeping historical rows when a tracked column changes",
+            "Takes a database backup for disaster recovery",
+            "Freezes a model so it can never be rebuilt",
+            "Captures a screenshot of the lineage graph"
+          ],
+          "answer": 0,
+          "explain": "Snapshots add valid-from/valid-to columns so you keep every version of a changing record - the essence of a type-2 slowly changing dimension.",
+          "hint": "It preserves history, one row per version."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the opening of a dbt snapshot block that tracks `customers` using `customer_id` as the unique key and a `timestamp` strategy.",
+          "patterns": [
+            {
+              "re": "\\{%\\s*snapshot\\s+\\w+",
+              "m": "Open a snapshot block with a name."
+            },
+            {
+              "re": "unique_key\\s*=\\s*[\\'\"]?customer_id",
+              "m": "Set unique_key='customer_id'."
+            },
+            {
+              "re": "strategy\\s*=\\s*[\\'\"]timestamp[\\'\"]?",
+              "m": "Use the timestamp strategy."
+            }
+          ],
+          "solution": "{% snapshot customers_snapshot %}\n{{ config(target_schema='snapshots', unique_key='customer_id', strategy='timestamp', updated_at='updated_at') }}\nselect * from {{ source('raw', 'customers') }}\n{% endsnapshot %}",
+          "explain": "The snapshot name comes first, then config() sets the target schema, unique key and strategy. The timestamp strategy needs an updated_at column to detect changes.",
+          "hint": "Open with {% snapshot name %}, then a config() call with unique_key and strategy."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that loads CSV files placed in the seeds/ folder as tables",
+          "answers": [
+            "dbt seed"
+          ],
+          "caseSensitive": true,
+          "hint": "Two words: dbt plus the verb for planting data.",
+          "explain": "dbt seed loads the CSVs in seeds/ into the warehouse, which is ideal for small static lookup tables you want under version control."
+        }
+      ]
+    }
+  ]
+}

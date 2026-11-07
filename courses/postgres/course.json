@@ -1,0 +1,373 @@
+{
+  "id": "postgres",
+  "title": "PostgreSQL Essentials",
+  "subtitle": "Week 8: types, psql, indexes, EXPLAIN and transactions",
+  "color": "#4f8cff",
+  "order": 15,
+  "description": "Go under the hood of PostgreSQL: rich data types and constraints, the psql CLI, how indexes actually work, reading EXPLAIN plans, and how transactions, MVCC and locking keep concurrent writes correct.",
+  "lessons": [
+    {
+      "title": "Data Types and Constraints",
+      "body": "PostgreSQL offers a type for almost every shape of data, and choosing the right one is your first defence against bad data. **Integer types** are `smallint` (2 bytes), `integer` (4 bytes) and `bigint` (8 bytes); use `bigint` for identifiers that may grow past two billion. For money never use `real` or `double precision`: floating point cannot represent `0.1` exactly, so repeated arithmetic drifts. Use `numeric(12,2)`, an exact decimal type.\n\n`text` is the right string type; `varchar(n)` only adds a length check, so prefer `text` plus a `CHECK`. `boolean` stores true/false. `timestamptz` stores an absolute instant (UTC internally) and renders it in the session timezone, so always prefer it over `timestamp`. `jsonb` stores validated JSON in a binary form you can index and query with operators such as `->>`. Arrays (`text[]`) hold a small ordered list in one column, and `uuid` holds a 128-bit identifier ideal for application-generated IDs.\n\n**Constraints** are rules the server enforces on every write: `NOT NULL`, `UNIQUE`, `CHECK (total >= 0)` and `PRIMARY KEY` (unique plus not null). A `FOREIGN KEY` points at another table's key and can clean up children with `ON DELETE CASCADE`, refuse with `RESTRICT`, or blank them with `ON DELETE SET NULL`.\n\n```sql\nCREATE TABLE orders (\n  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n  customer_id bigint NOT NULL REFERENCES customers(id) ON DELETE CASCADE,\n  total numeric(12,2) NOT NULL CHECK (total >= 0),\n  created_at timestamptz NOT NULL DEFAULT now()\n);\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "You are storing invoice totals that must add up exactly. Which type should the column use?",
+          "options": [
+            "numeric(12,2)",
+            "double precision",
+            "real",
+            "text"
+          ],
+          "answer": 0,
+          "explain": "numeric is an exact decimal type. Floats are binary and cannot represent values like 0.10 exactly, so sums drift over many rows.",
+          "hint": "Which type is defined by a precision and scale rather than a fixed number of bits?"
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why is `timestamptz` usually preferred over `timestamp`?",
+          "options": [
+            "It stores an absolute instant in UTC and renders it in the session timezone, so the moment is never ambiguous",
+            "It takes less disk space",
+            "It sorts faster than timestamp",
+            "It stores the date only, without a time"
+          ],
+          "answer": 0,
+          "explain": "timestamptz keeps an absolute point in time. Plain timestamp has no timezone, so the same value means different instants to different readers.",
+          "hint": "Think about what happens when servers in two regions read the same value."
+        },
+        {
+          "type": "input",
+          "prompt": "Which constraint guarantees a column can never be empty and must always hold a value?",
+          "answers": [
+            "NOT NULL",
+            "not null",
+            "notnull"
+          ],
+          "explain": "NOT NULL rejects any row that leaves the column unset, so readers never have to handle a missing value.",
+          "hint": "It is two words describing the absence of a value."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a column definition for a `price` stored exactly, with up to 12 total digits and 2 decimal places.",
+          "patterns": [
+            {
+              "re": "numeric\\s*\\(\\s*12\\s*,\\s*2\\s*\\)",
+              "m": "Use numeric(12,2) - an exact decimal type, never a float."
+            }
+          ],
+          "solution": "price numeric(12,2)",
+          "explain": "numeric(12,2) holds up to 12 significant digits with 2 after the point, exactly - the correct choice for money.",
+          "hint": "State the precision, then the scale, inside parentheses."
+        }
+      ]
+    },
+    {
+      "title": "The psql CLI",
+      "body": "`psql` is the interactive terminal for PostgreSQL and the fastest way to inspect a live database. Connect with `psql -h db.internal -U analyst -d support`; `-d` names the database. Once inside, anything starting with a backslash is a **meta-command** handled by psql itself, not SQL sent to the server.\n\n| command | what it does |\n| --- | --- |\n| `\\l` | list all databases |\n| `\\c support` | connect to the `support` database |\n| `\\dt` | list tables in the search path |\n| `\\d orders` | describe the columns of `orders` |\n| `\\d+ orders` | the same, plus storage, indexes and size |\n| `\\x` | toggle expanded output, one field per line |\n| `\\timing` | show how long each statement takes |\n| `\\copy` | move data to or from a CSV on the client |\n\nWhen a wide row wraps and becomes unreadable, type `\\x` (or run `\\x auto`) to flip to expanded output where each column prints on its own line. `\\timing` is invaluable when you are checking whether a query is slow.\n\n`\\copy` is the client-side bulk loader: `\\copy orders FROM 'orders.csv' CSV HEADER;` reads a file from the machine you are sitting at. For scripted work, `psql -f migrate.sql` runs a file, and `\\i other.sql` includes one inside a session. Always end an interactive statement with a semicolon; without it psql shows a `-#` prompt and waits.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which psql meta-command lists the tables in the current database?",
+          "options": [
+            "\\dt",
+            "\\d",
+            "\\l",
+            "\\c"
+          ],
+          "answer": 0,
+          "explain": "\\dt lists tables (the t is for table). \\l lists databases, \\d describes a relation, and \\c connects to another database.",
+          "hint": "The extra letter narrows the listing to tables."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A table has 30 columns and each row wraps badly in your terminal. What helps most?",
+          "options": [
+            "Type \\x to switch to expanded output, one field per line",
+            "Type \\dt to list the table again",
+            "Press Enter to see more rows",
+            "Reconnect with \\c"
+          ],
+          "answer": 0,
+          "explain": "\\x (expanded display) prints each column name and value on its own line, turning an unreadable wide row into a readable list.",
+          "hint": "There is a meta-command for expanded display."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the psql meta-command that describes the `orders` table in detail, including its indexes and total size.",
+          "patterns": [
+            {
+              "re": "\\\\d\\+\\s+orders",
+              "m": "Use \\d+ orders - the plus adds indexes, constraints and size."
+            }
+          ],
+          "solution": "\\d+ orders",
+          "explain": "\\d+ is the detailed describe meta-command; the plain \\d shows columns only, while \\d+ adds indexes, foreign keys and on-disk size.",
+          "hint": "Start with a backslash, then d, then a plus sign, then the table name."
+        },
+        {
+          "type": "input",
+          "prompt": "Which meta-command turns on per-statement timing so psql prints how long each statement took?",
+          "answers": [
+            "\\timing",
+            "\\timing on",
+            "timing"
+          ],
+          "explain": "\\timing toggles the timer. When on, psql prints a Time: line after every statement - the quickest way to spot a slow query by hand.",
+          "hint": "The word describes measuring elapsed time."
+        }
+      ]
+    },
+    {
+      "title": "Indexes Explained",
+      "body": "An index is a separate, sorted structure that lets the planner find rows without reading the whole table (a **sequential scan**). The default is a **B-tree**, ideal for equality and range comparisons on ordered data.\n\nA **composite index** covers several columns, and the **leftmost-prefix rule** governs it: an index on `(customer_id, created_at)` helps a query filtering on `customer_id` alone, or on both columns, but *not* one filtering only on `created_at`. Put the equality column first, then the range column.\n\nA **partial index** indexes only rows matching a predicate, so it stays small and cheap: an index on `created_at` where `status = 'pending'` is perfect when 99% of orders are already delivered. A **covering index** adds extra columns with `INCLUDE` so the scan can answer from the index alone: `CREATE INDEX ON orders (customer_id) INCLUDE (total);`.\n\nIndexes are not free. Every `INSERT`, `UPDATE` and `DELETE` must also maintain each index, so a table with ten indexes writes far slower than one with two, and the index files consume disk. The rule: index the columns your slow queries filter, join and sort on, confirm with `EXPLAIN` that the planner actually uses them, and drop the ones nothing uses.\n\n```sql\nCREATE INDEX idx_pending ON orders (created_at) WHERE status = 'pending';\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "An index exists on `(customer_id, created_at)`. Which query can use it?",
+          "options": [
+            "WHERE customer_id = 42",
+            "WHERE created_at > now() - interval '1 day'",
+            "WHERE total = 10",
+            "WHERE status = 'pending'"
+          ],
+          "answer": 0,
+          "explain": "By the leftmost-prefix rule the index can be used when customer_id is constrained. A filter only on created_at cannot use it because it skips the leading column.",
+          "hint": "Which column comes first in the index definition?"
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `INCLUDE (total)` add when creating an index on `orders (customer_id)`?",
+          "options": [
+            "Extra payload columns in the leaf pages so a covering scan can answer without touching the table",
+            "A second copy of every value for faster sorting",
+            "A unique constraint on total",
+            "A foreign key to the totals table"
+          ],
+          "answer": 0,
+          "explain": "INCLUDE columns are stored in the index but not part of the search key, enabling an Index Only Scan that avoids the heap fetch.",
+          "hint": "Covering means the query is answered from the index alone."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why can adding an index make writes slower?",
+          "options": [
+            "Every INSERT, UPDATE and DELETE must also update each index",
+            "The index takes a lock on the whole database",
+            "PostgreSQL disables autovacuum on indexed tables",
+            "The planner stops using sequential scans"
+          ],
+          "answer": 0,
+          "explain": "Indexes speed reads but must be maintained on every write, adding work (and I/O) to each modification.",
+          "hint": "Think about what has to happen to the index when a row changes."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a partial index on `orders(created_at)` that only indexes rows where `status` is 'pending'.",
+          "patterns": [
+            {
+              "re": "create\\s+index",
+              "m": "Start with CREATE INDEX."
+            },
+            {
+              "re": "on\\s+orders\\s*\\(\\s*created_at\\s*\\)",
+              "m": "Index the orders table on (created_at)."
+            },
+            {
+              "re": "where\\s+status\\s*=\\s*'pending'",
+              "m": "Add WHERE status = 'pending' to keep the index partial."
+            }
+          ],
+          "solution": "CREATE INDEX idx_orders_pending ON orders (created_at) WHERE status = 'pending';",
+          "explain": "A partial index stores only the pending rows, so it stays tiny and is quickly updated while the bulk of delivered orders is ignored.",
+          "hint": "A partial index ends with a WHERE clause your query also uses."
+        }
+      ]
+    },
+    {
+      "title": "Reading EXPLAIN Plans",
+      "body": "`EXPLAIN` shows the plan the planner chose without running the query; `EXPLAIN ANALYZE` **runs** it and reports actual timings and row counts. Because ANALYZE executes everything, do not run it casually on `INSERT`, `UPDATE` or `DELETE` in production.\n\nPlans are trees read from the inside out. The scan at the leaves matters most:\n\n| node | meaning |\n| --- | --- |\n| `Seq Scan` | read every row - fine for small or mostly-fetched tables |\n| `Index Scan` | walk the index, then fetch each matching row from the heap |\n| `Index Only Scan` | answer entirely from the index (needs a covering index and a vacuumed visibility map) |\n| `Bitmap Heap Scan` | collect many row locations, sort them, then read the heap in order |\n\nAbove the scans sit joins: a **Nested Loop** is best when the outer side is tiny; a **Hash Join** builds a hash of the smaller side and suits large unsorted sets; a **Merge Join** walks both sides in sorted order.\n\nEach node prints `cost=... rows=...` as the planner's *estimate*, and with `ANALYZE` a second `actual time=... rows=... loops=...`. Compare them: an estimate of ten rows against an actual of 100,000 usually means stale statistics or a bad row estimate, which is the root of most bad plans.\n\n```sql\nEXPLAIN (ANALYZE, BUFFERS) SELECT * FROM orders WHERE customer_id = 42;\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the key difference between `EXPLAIN` and `EXPLAIN ANALYZE`?",
+          "options": [
+            "ANALYZE actually executes the query and adds actual timings and row counts",
+            "ANALYZE only runs on SELECT statements",
+            "EXPLAIN ANALYZE shows the table statistics instead of the plan",
+            "There is no difference; they are aliases"
+          ],
+          "answer": 0,
+          "explain": "EXPLAIN only estimates. EXPLAIN ANALYZE runs the statement, so it is dangerous on writes and adds real timing and row data to each node.",
+          "hint": "One of them runs the query."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which scan answers a query from the index alone without fetching rows from the table heap?",
+          "options": [
+            "Index Only Scan",
+            "Seq Scan",
+            "Bitmap Heap Scan",
+            "Nested Loop"
+          ],
+          "answer": 0,
+          "explain": "An Index Only Scan needs a covering index (all referenced columns present) and a vacuumed visibility map, and avoids the heap entirely.",
+          "hint": "Its name says exactly what it does not touch."
+        },
+        {
+          "type": "mcq",
+          "prompt": "The outer side of a join has just a few rows and the inner side has a matching index. Which join usually wins?",
+          "options": [
+            "Nested Loop",
+            "Hash Join",
+            "Merge Join",
+            "Seq Scan"
+          ],
+          "answer": 0,
+          "explain": "With a tiny outer side, a Nested Loop does a handful of cheap indexed lookups instead of building and probing a hash table.",
+          "hint": "It loops over the small side and looks each row up."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the command to run a query and see its real timing and buffer usage.",
+          "patterns": [
+            {
+              "re": "explain",
+              "m": "Use EXPLAIN with options."
+            },
+            {
+              "re": "analyze",
+              "m": "Add ANALYZE to execute and time it."
+            },
+            {
+              "re": "select",
+              "m": "Give it a statement to run."
+            }
+          ],
+          "solution": "EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM orders WHERE customer_id = 42;",
+          "explain": "ANALYZE adds actual times and row counts; BUFFERS reports shared and local buffer reads, showing where the real I/O happens.",
+          "hint": "Options go in parentheses after EXPLAIN."
+        }
+      ]
+    },
+    {
+      "title": "Transactions and Concurrency",
+      "body": "Every statement runs inside a **transaction**. Wrap several in `BEGIN;` ... `COMMIT;` to make them all-or-nothing: if anything fails, `ROLLBACK;` discards every change since the `BEGIN`. A `SAVEPOINT before_insert;` marks a point you can return to with `ROLLBACK TO before_insert;` without abandoning the whole transaction - handy inside long scripts.\n\nPostgreSQL runs with **MVCC** (multi-version concurrency control): readers never block writers and writers never block readers, because an `UPDATE` writes a new row version rather than overwriting. Old versions are cleaned up later by vacuum.\n\nThe **isolation level** decides how much of other transactions you see. `READ COMMITTED` is the default (each statement gets a fresh snapshot), `REPEATABLE READ` gives one stable snapshot for the whole transaction, and `SERIALIZABLE` makes concurrent transactions behave as if run one after another, at the cost of retries.\n\nWhen you must read a row and then change it, lock it so nobody else can: `SELECT * FROM accounts WHERE id = 7 FOR UPDATE;` holds a row lock until the transaction ends. Two transactions each holding a lock the other wants form a **deadlock**; PostgreSQL detects it, aborts one with a `deadlock detected` error, and lets the other proceed - always be ready to retry.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `ROLLBACK` do?",
+          "options": [
+            "Discards every change made since the current transaction began",
+            "Undoes the last statement only",
+            "Saves the current changes permanently",
+            "Unlocks the whole database"
+          ],
+          "answer": 0,
+          "explain": "ROLLBACK ends the transaction and throws away all its changes. To undo just one statement inside a transaction, use a SAVEPOINT.",
+          "hint": "It is the opposite of COMMIT."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is PostgreSQL's default transaction isolation level?",
+          "options": [
+            "READ COMMITTED",
+            "REPEATABLE READ",
+            "SERIALIZABLE",
+            "READ UNCOMMITTED"
+          ],
+          "answer": 0,
+          "explain": "READ COMMITTED is the default: each statement sees a snapshot taken at the start of that statement, so it can see others' committed changes mid-transaction.",
+          "hint": "It is the middle option, not the strictest."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these transaction steps in the order they must be written to safely transfer money.",
+          "items": [
+            "BEGIN;",
+            "SELECT ... FROM accounts WHERE id = 7 FOR UPDATE;",
+            "UPDATE accounts SET balance = balance - 100 WHERE id = 7;",
+            "COMMIT;"
+          ],
+          "explain": "Open the transaction, lock the row before reading it, change it, then commit. Locking before the update is what prevents a lost update from a concurrent writer.",
+          "hint": "Lock the row before you read and change it, and close with COMMIT."
+        },
+        {
+          "type": "input",
+          "prompt": "Which SQL clause locks the selected rows until the transaction ends, so another transaction cannot change them?",
+          "answers": [
+            "FOR UPDATE",
+            "for update",
+            "forupdate"
+          ],
+          "explain": "SELECT ... FOR UPDATE takes an exclusive row lock. Other writers block until the transaction commits or rolls back.",
+          "hint": "It is two words appended to a SELECT."
+        }
+      ]
+    },
+    {
+      "title": "Maintenance and Bloat",
+      "body": "An `UPDATE` or `DELETE` in PostgreSQL does not overwrite or erase the old row; it writes a new version and marks the old one dead. Those dead rows stay until vacuumed, and the space they occupy is called **bloat**. `VACUUM` marks dead row space as reusable but does not return it to the operating system and does not take an exclusive lock, so it is safe to run online. `VACUUM FULL` rewrites the whole table into a new file, returning space to the OS, but it holds an `ACCESS EXCLUSIVE` lock and blocks all reads and writes - use it only in a maintenance window.\n\n`ANALYZE` samples the table and refreshes the statistics the planner uses to estimate row counts. Without fresh statistics the planner guesses badly and may choose a sequential scan over an index. Autovacuum runs both automatically in the background; its thresholds are controlled by `autovacuum_vacuum_threshold` and `autovacuum_vacuum_scale_factor`. On a busy table autovacuum may fall behind - lower the scale factor for that table.\n\nIndexes also bloat as entries are updated and deleted. `REINDEX` rebuilds an index; `REINDEX INDEX CONCURRENTLY idx_orders_status;` does it without blocking writes. A sensible routine: monitor bloat, vacuum and analyse, and reindex only when measurement says you must.\n\n```sql\nVACUUM (VERBOSE, ANALYZE) orders;\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between `VACUUM` and `VACUUM FULL`?",
+          "options": [
+            "VACUUM marks space reusable while keeping the file; VACUUM FULL rewrites the table and returns space but blocks all access",
+            "VACUUM FULL is the safe online version of VACUUM",
+            "VACUUM deletes rows; VACUUM FULL keeps them",
+            "They are identical"
+          ],
+          "answer": 0,
+          "explain": "VACUUM is online and just frees space inside the file. VACUUM FULL rewrites the table to reclaim disk but takes an ACCESS EXCLUSIVE lock, so it must run in a window.",
+          "hint": "Think about which one blocks readers and writers."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `ANALYZE` do?",
+          "options": [
+            "Samples the table to refresh the planner's statistics",
+            "Deletes dead rows and returns space to the OS",
+            "Rebuilds every index on the table",
+            "Takes a backup of the table"
+          ],
+          "answer": 0,
+          "explain": "ANALYZE gathers column statistics so the planner can estimate row counts. Stale statistics are a common cause of bad plans.",
+          "hint": "It is about the planner's estimates, not about reclaiming space."
+        },
+        {
+          "type": "input",
+          "prompt": "Which command rewrites a table into a new file to reclaim bloat, blocking all access while it runs?",
+          "answers": [
+            "VACUUM FULL",
+            "vacuum full",
+            "vacuumfull"
+          ],
+          "explain": "VACUUM FULL compacts the table and returns free space to the OS, but its exclusive lock stops all reads and writes until it finishes.",
+          "hint": "Two words: the maintenance command plus the word for a complete rewrite."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the command to vacuum the `orders` table and refresh its statistics in the same pass.",
+          "patterns": [
+            {
+              "re": "vacuum",
+              "m": "Use VACUUM."
+            },
+            {
+              "re": "analyze",
+              "m": "Add ANALYZE in the option list."
+            },
+            {
+              "re": "orders",
+              "m": "Name the orders table."
+            }
+          ],
+          "solution": "VACUUM (VERBOSE, ANALYZE) orders;",
+          "explain": "VACUUM reclaims dead-row space while ANALYZE refreshes statistics, so do both together. VERBOSE reports what was cleaned.",
+          "hint": "Options go in parentheses before the table name."
+        }
+      ]
+    }
+  ]
+}

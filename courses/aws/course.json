@@ -1,0 +1,466 @@
+{
+  "id": "aws",
+  "title": "AWS Cloud Foundations",
+  "subtitle": "Weeks 15-18: where data lives and runs",
+  "color": "#ff9900",
+  "order": 19,
+  "description": "Learn one cloud deeply and map the rest: accounts and the shared model, IAM and least privilege, S3 storage, EC2 and security groups, VPC networking, managed databases with RDS, serverless with Lambda, and infrastructure as code with Terraform.",
+  "lessons": [
+    {
+      "title": "The Cloud Model and Accounts",
+      "body": "AWS is a collection of data centres you rent by the second. The world is split into **Regions** - isolated geographic areas such as `eu-west-2` (London) or `us-east-1` (N. Virginia). Inside each Region are **Availability Zones (AZs)**: physically separate data centres with independent power and cooling, named `eu-west-2a`, `eu-west-2b`, and so on. Running across two AZs is how a production system survives a single data centre failing.\n\nThe **shared responsibility model** divides the work: AWS secures *the cloud*, you secure *what you put in it*. AWS patches the physical hosts, the hypervisor and the internals of managed services; you own your data, your IAM permissions, the operating system on your EC2 instances and your encryption choices. A breach caused by an open S3 bucket is your problem, not AWS's.\n\nThe **free tier** lets you learn for free - but only within limits. It includes 750 hours a month of a `t2.micro` or `t3.micro` EC2 instance, 5 GB of S3 storage and a million Lambda requests. The trap is the edges: a **NAT gateway bills per hour and per gigabyte**, and data leaving AWS (**egress**) costs money. Always set a billing alarm and tear resources down after a lab.\n\nYou drive all of this from the **AWS CLI**. After `aws configure` you supply an access key, secret, a default Region and an output format, and every command then targets that account. `aws s3 ls` lists buckets; `aws ec2 describe-instances` lists instances. Using the CLI (rather than only the console) makes your actions repeatable and scriptable.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Under the shared responsibility model, which of these is AWS's job, not yours?",
+          "options": [
+            "Patching the physical hosts and the hypervisor",
+            "Encrypting the customer data you store",
+            "Writing least-privilege IAM policies",
+            "Patching the operating system on your EC2 instances"
+          ],
+          "answer": 0,
+          "explain": "AWS secures the cloud itself (hardware, hypervisor, data-centre security). You secure what you put in the cloud: data, IAM, your instance OS.",
+          "hint": "It is the layer below the operating system that you never log in to."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is an Availability Zone?",
+          "options": [
+            "A physically separate data centre with independent power and cooling within a Region",
+            "A billing boundary that groups your accounts",
+            "A single virtual machine you can launch",
+            "A global edge cache in front of your website"
+          ],
+          "answer": 0,
+          "explain": "An AZ is an isolated data centre inside a Region. Spreading resources across two AZs is the basic high-availability pattern.",
+          "hint": "Think of it as one building, not one city."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact AWS CLI command used to set your access key, secret, default Region and output format",
+          "answers": [
+            "aws configure"
+          ],
+          "caseSensitive": true,
+          "hint": "Two words: the CLI name, then a verb meaning to set up.",
+          "explain": "aws configure prompts for your credentials and stores them under ~/.aws/, so later commands know which account and Region to target."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these steps in order for a safe, cheap free-tier lab",
+          "items": [
+            "Set a billing alarm so unexpected spend alerts you",
+            "Launch a t3.micro instance in one Region",
+            "Do the work and note which resources are still running",
+            "Tear down the instance and any NAT gateway when finished"
+          ],
+          "explain": "Alarm first, then work within free-tier limits, then clean up - because the costly services are the ones that keep running silently.",
+          "hint": "Guard against cost before you start, not after the bill arrives."
+        }
+      ]
+    },
+    {
+      "title": "IAM: Users, Roles and Policies",
+      "body": "The **root user** is the email address that created the account. It can do anything, cannot be restricted by policy, and is the single most valuable credential you own. Use it once to build your admin setup, enable **MFA**, then lock the credentials away. Everyday work happens as an **IAM user**, a **role**, or a **group** of users.\n\nAn **IAM policy** is a JSON document that allows or denies actions on resources. AWS denies by default, so nothing is permitted unless a policy allows it. A statement has `Effect` (`Allow` or `Deny`), `Action` (for example `s3:GetObject`), `Resource` (an ARN such as `arn:aws:s3:::reports-bucket/*`) and optionally `Condition`.\n\n```json\n{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [{\n    \"Effect\": \"Allow\",\n    \"Action\": [\"s3:GetObject\"],\n    \"Resource\": \"arn:aws:s3:::reports-bucket/*\"\n  }]\n}\n```\n\n**Least privilege** means granting the narrowest action on the narrowest resource for the shortest time. Never attach `AdministratorAccess` just to get something working - it is the permission model of last resort, not the first.\n\nA **role** is a set of permissions with no password that a trusted identity can assume temporarily. Services use roles: an EC2 instance runs under an instance profile, and a Lambda function runs under an execution role. This is safer than embedding keys because credentials are short-lived and issued automatically.\n\nFinally, **never commit access keys**. Keep them in environment variables or a secrets manager, add `~/.aws/` and `.env` to `.gitignore`, and rotate anything exposed. AWS scans public repositories and will email you if it finds a key.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which credential should you use for routine, everyday work?",
+          "options": [
+            "An IAM user or assumed role with least-privilege policies",
+            "The root user, because it is simplest",
+            "A shared account used by the whole team",
+            "An access key committed to the repository so CI can find it"
+          ],
+          "answer": 0,
+          "explain": "The root user is for account-level setup only. Daily work uses an IAM user or role with tightly scoped permissions and MFA.",
+          "hint": "The most powerful identity is the one you use least."
+        },
+        {
+          "type": "md",
+          "prompt": "Write an IAM policy (JSON) that allows only `s3:GetObject` on the objects in the bucket `reports-bucket`.",
+          "patterns": [
+            {
+              "re": "\"Effect\"\\s*:\\s*\"Allow\"",
+              "m": "Set the statement Effect to Allow."
+            },
+            {
+              "re": "s3:GetObject",
+              "m": "Grant the s3:GetObject action."
+            },
+            {
+              "re": "\"Resource\"\\s*:\\s*\"arn:aws:s3:::reports-bucket/\\*\"",
+              "m": "Scope the Resource to the bucket objects ARN."
+            }
+          ],
+          "solution": "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [{\n    \"Effect\": \"Allow\",\n    \"Action\": [\"s3:GetObject\"],\n    \"Resource\": \"arn:aws:s3:::reports-bucket/*\"\n  }]\n}",
+          "explain": "The policy allows exactly one action on exactly one bucket's objects. Note the ARN: the bucket itself is arn:aws:s3:::reports-bucket, and /* selects the objects inside it.",
+          "hint": "Repeat the ARN shape: arn:aws:s3::: followed by the bucket name, then /* for the objects."
+        },
+        {
+          "type": "input",
+          "prompt": "Which single security control should be enabled on the root user immediately after creating an account? (three-letter acronym)",
+          "answers": [
+            "MFA",
+            "mfa"
+          ],
+          "hint": "Multi-factor authentication.",
+          "explain": "MFA stops a stolen root password from being enough to take over the whole account."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these steps in order so an EC2 app can read a bucket without storing any keys",
+          "items": [
+            "Create an IAM role with a policy allowing s3:GetObject on the bucket",
+            "Attach the role to the instance as an instance profile",
+            "The application calls the SDK and receives temporary credentials automatically",
+            "No long-lived access key is ever written to the instance"
+          ],
+          "explain": "A role plus instance profile gives the instance rotating credentials at runtime, which is far safer than baking a key into code or config.",
+          "hint": "Role first, then attach it, then the app picks up credentials by itself."
+        }
+      ]
+    },
+    {
+      "title": "S3: Buckets and Objects",
+      "body": "S3 stores **objects** in **buckets**. A bucket name is globally unique across all of AWS and pinned to a Region. There are no real folders: S3 is a flat key-value store where the **key** is the full path string, such as `logs/2026/10/app.log`. The slashes only look like folders; the console groups keys by **prefix**, which is why listing `logs/2026/` is quick.\n\nAccess is controlled by IAM policies (which identity) and **bucket policies** (which bucket). A bucket policy is attached to the bucket and can allow other accounts - or the public - to read it, a common cause of data leaks. Block public access unless you truly mean to expose the data.\n\n**Versioning** keeps every previous copy of an object, so an overwrite or delete becomes recoverable. **Lifecycle rules** then automate housekeeping: move objects to a cheaper **storage class** after 30 days and delete them after 365. The classes trade retrieval speed for price. `STANDARD` is instant; `STANDARD_IA` is cheaper to store but charges for retrieval; `GLACIER` takes minutes to hours to restore; `DEEP_ARCHIVE` is the cheapest and slowest.\n\nA **presigned URL** is a temporary, signed link granting time-limited access to one object, generated with the AWS SDK. The user downloads directly from S3 without your application proxying gigabytes, and without ever seeing your credentials. The link expires in minutes.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "In S3, what is `logs/2026/10/app.log`?",
+          "options": [
+            "A single key; the slashes are just characters in the name, not real folders",
+            "A path to a folder containing subfolders logs, 2026 and 10",
+            "A bucket named logs",
+            "A version identifier for an object"
+          ],
+          "answer": 0,
+          "explain": "S3 is flat. The object's key is the whole string; the console merely groups keys by prefix to make them look like folders.",
+          "hint": "There are no directories in S3, only keys that contain slashes."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is a presigned URL for?",
+          "options": [
+            "Temporary, signed access to one object without exposing your credentials",
+            "Permanently making a bucket public",
+            "Compressing an object before download",
+            "Encrypting a bucket with a customer key"
+          ],
+          "answer": 0,
+          "explain": "A presigned URL carries a signature and an expiry, so a user can fetch one object for a short time without any AWS account of their own.",
+          "hint": "It is time-limited and signed - temporary, not permanent."
+        },
+        {
+          "type": "order",
+          "prompt": "Order these lifecycle transitions so cost falls as the data ages",
+          "items": [
+            "Store new objects in S3 STANDARD",
+            "After 30 days, transition to STANDARD_IA",
+            "After 90 days, transition to GLACIER",
+            "After 365 days, expire and delete the objects"
+          ],
+          "explain": "Lifecycle rules move cold data to cheaper classes as access probability drops, then delete it once it is no longer needed.",
+          "hint": "Instant access first, archive in the middle, deletion last."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact AWS CLI command that lists the objects in the bucket `reports-bucket`",
+          "answers": [
+            "aws s3 ls s3://reports-bucket",
+            "aws s3 ls s3://reports-bucket/"
+          ],
+          "caseSensitive": true,
+          "hint": "The s3 subcommand ls takes an s3:// URI.",
+          "explain": "aws s3 ls s3://reports-bucket lists the keys in the bucket, the fastest way to confirm objects exist and their sizes."
+        }
+      ]
+    },
+    {
+      "title": "EC2 and Security Groups",
+      "body": "An **EC2 instance** is a virtual server. You choose an **AMI** (Amazon Machine Image), a template holding the operating system and preinstalled software such as Amazon Linux 2023 or Ubuntu; an **instance type** that sets CPU and memory (`t3.micro` for a lab, `m6i.large` for steady work); and a **key pair**. AWS keeps the public half, while you download the private key (`.pem`) once and can never download it again.\n\nNetwork access is governed by the **security group**, a stateful virtual firewall attached to the instance. *Stateful* means return traffic is allowed automatically: if you permit inbound TCP 443, the reply leaves without any outbound rule. Security groups are allow-only - there are no deny rules, and anything not explicitly allowed is dropped.\n\n```bash\nchmod 400 my-key.pem\nssh -i my-key.pem ec2-user@203.0.113.10\n```\n\nThe `chmod 400` matters: SSH refuses a key that other users could read, and rightly so.\n\n**User data** is a script that runs once at first boot. It is how you install packages and start services so a fresh instance is ready without you logging in:\n\n```bash\n#!/bin/bash\nyum install -y httpd\nsystemctl enable --now httpd\n```\n\nNever open SSH (port 22) to `0.0.0.0/0`. Restrict it to your office or VPN range, or avoid an open port entirely by using AWS Systems Manager Session Manager. An instance is only as private as its security group.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A security group allows inbound TCP 443. Why do you not also need an outbound rule for the reply?",
+          "options": [
+            "Security groups are stateful, so return traffic is allowed automatically",
+            "Port 443 replies use a different protocol that is always allowed",
+            "Outbound rules are disabled by default on all EC2 instances",
+            "The reply is sent over port 22 instead"
+          ],
+          "answer": 0,
+          "explain": "Stateful means the group remembers the connection: the response to an allowed inbound request is permitted without a matching outbound rule.",
+          "hint": "The opposite of stateful is stateless, which is how NACLs behave."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is EC2 user data?",
+          "options": [
+            "A script that runs once at first boot to configure the instance",
+            "A log file AWS writes to disk",
+            "A backup of the instance's home directory",
+            "The list of users allowed to SSH in"
+          ],
+          "answer": 0,
+          "explain": "User data bootstraps the instance - installing packages and starting services - so it is ready on first boot without manual login.",
+          "hint": "It runs at launch, not on every reboot."
+        },
+        {
+          "type": "input",
+          "prompt": "Which TCP port does SSH listen on by default?",
+          "answers": [
+            "22"
+          ],
+          "hint": "A low, well-known port every sysadmin recognises.",
+          "explain": "SSH uses TCP 22. Opening it to 0.0.0.0/0 exposes every account on the box to internet brute-force attempts."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the choices you make when launching an EC2 instance in the console",
+          "items": [
+            "Choose an AMI (the OS template)",
+            "Choose an instance type (CPU and memory)",
+            "Select or create a key pair for SSH",
+            "Configure the security group and launch"
+          ],
+          "explain": "Launching walks you through template, size, authentication and network access - in that order - before the instance starts.",
+          "hint": "You pick what the machine is before how it is reached."
+        }
+      ]
+    },
+    {
+      "title": "VPC and Networking Basics",
+      "body": "A **VPC** (Virtual Private Cloud) is your own private network inside AWS, defined by a CIDR block such as `10.0.0.0/16`. You carve it into **subnets**, each locked to one Availability Zone, for example `10.0.1.0/24` in `eu-west-2a`.\n\nA subnet is **public** or **private** purely by its routing. A **route table** holds rules; pointing `0.0.0.0/0` (all internet traffic) at an **Internet Gateway** makes the subnet public. Remove that route and the subnet is private. A private subnet can still reach the internet *outbound* if its `0.0.0.0/0` route points at a **NAT Gateway** living in a public subnet. The NAT gateway gives outbound-only access, so servers can fetch updates while staying unreachable from the internet.\n\nThe classic layout is two public subnets (for load balancers) and two private subnets (for application and database servers), spread across two AZs.\n\nTwo firewalls guard the traffic. **Security groups** attach to an instance, are stateful and allow-only. **Network ACLs** attach to a subnet, are stateless (you must allow return traffic explicitly) and support explicit deny rules. Security groups are the everyday tool; NACLs are a coarse, subnet-level backstop.\n\nIf a server should be reachable but is not - or vice versa - check the route table *and* the security group separately. Routing decides whether packets travel; the firewall decides whether they are allowed.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What makes a subnet public?",
+          "options": [
+            "Its route table sends 0.0.0.0/0 to an Internet Gateway",
+            "It has more than one instance in it",
+            "It uses a CIDR block ending in /24",
+            "Its security group allows inbound traffic"
+          ],
+          "answer": 0,
+          "explain": "Public versus private is decided only by routing. A route for 0.0.0.0/0 to an internet gateway is what exposes the subnet.",
+          "hint": "It is about where the traffic is routed, not how the subnet is named."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is the purpose of a NAT gateway?",
+          "options": [
+            "To let instances in a private subnet reach the internet outbound, without being reachable inbound",
+            "To make a private subnet public",
+            "To terminate SSH connections",
+            "To replace the Internet Gateway entirely"
+          ],
+          "answer": 0,
+          "explain": "A NAT gateway gives one-way outbound internet access, so private servers can download patches but the internet cannot initiate a connection to them.",
+          "hint": "Think 'outbound only'."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which statement about security groups versus network ACLs is correct?",
+          "options": [
+            "Security groups are stateful; network ACLs are stateless",
+            "Security groups are stateless; network ACLs are stateful",
+            "Both are stateless",
+            "Both attach to subnets rather than instances"
+          ],
+          "answer": 0,
+          "explain": "Security groups (instance-level) remember connections and are stateful. Network ACLs (subnet-level) are stateless, so return traffic must be allowed explicitly.",
+          "hint": "The one attached to the instance is the stateful one."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the steps to give a subnet internet access",
+          "items": [
+            "Create a VPC with a CIDR block such as 10.0.0.0/16",
+            "Create a subnet inside the VPC",
+            "Create a route table and add a route 0.0.0.0/0 to an Internet Gateway",
+            "Associate the route table with the subnet"
+          ],
+          "explain": "The route table only takes effect once it is associated with the subnet. Without the association, the subnet stays private even though the route exists.",
+          "hint": "A route table does nothing until it is attached to the resource."
+        }
+      ]
+    },
+    {
+      "title": "RDS and Managed Databases",
+      "body": "**RDS** is a managed relational database. AWS runs the engine - PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, or Aurora - handles the operating system, applies patches and takes backups. You still own the schema, indexes and queries. RDS removes the undifferentiated heavy lifting, not the database design.\n\n**Multi-AZ** runs a synchronously replicated standby in a second Availability Zone. Applications connect to one DNS endpoint; if the primary fails, RDS promotes the standby in about a minute. It is for **availability**, not performance - the standby serves no traffic.\n\n**Read replicas** are the opposite: asynchronous copies you can send read queries to, which offloads a busy primary. They are for **scaling reads**, and by default they can lag behind the primary, so do not read from a replica when you must see the very latest write.\n\nBackups are automatic within a retention window of up to 35 days and let you restore to any point in time. Manual snapshots are kept until you delete them. **Parameter groups** are the engine configuration, like a managed `postgresql.conf`; some parameters need a reboot, many do not.\n\nAn application on EC2 connects exactly as it would to any database, using the RDS endpoint as the host:\n\n```\nDATABASE_URL=postgres://app_user:secret@mydb.abc123.eu-west-2.rds.amazonaws.com:5432/appdb\n```\n\nThe database's security group must allow port 5432 from the **application's** security group, not from a broad IP range - another case of least privilege.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between Multi-AZ and a read replica?",
+          "options": [
+            "Multi-AZ is for availability (failover); a read replica is for scaling read traffic",
+            "Multi-AZ scales reads; a read replica provides failover",
+            "They are the same feature with different names",
+            "Multi-AZ is for backups only; read replicas are for encryption"
+          ],
+          "answer": 0,
+          "explain": "Multi-AZ keeps a standby for failover and serves no traffic. A read replica receives reads asynchronously and may lag.",
+          "hint": "One fails over, the other takes read queries."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which port does PostgreSQL listen on by default?",
+          "options": [
+            "5432",
+            "3306",
+            "22",
+            "6379"
+          ],
+          "answer": 0,
+          "explain": "PostgreSQL uses 5432. MySQL and MariaDB use 3306; 6379 is Redis. The RDS security group must allow the engine's port.",
+          "hint": "MySQL is 3306; PostgreSQL is one notch higher in the mid-5000s."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the maximum number of days of automatic backup retention RDS allows? (just the number)",
+          "answers": [
+            "35"
+          ],
+          "hint": "A little more than a month.",
+          "explain": "RDS automatic backups can be retained for up to 35 days, enabling point-in-time restore anywhere inside that window."
+        },
+        {
+          "type": "order",
+          "prompt": "Order what happens during a Multi-AZ failover",
+          "items": [
+            "The primary database in one AZ becomes unavailable",
+            "RDS detects the failure",
+            "The standby in the second AZ is promoted to primary",
+            "Applications reconnect to the same endpoint and continue"
+          ],
+          "explain": "Because the DNS endpoint stays the same, applications reconnect without configuration changes; only which AZ answers behind that endpoint changes.",
+          "hint": "Detection comes before promotion, and the endpoint never changes."
+        }
+      ]
+    },
+    {
+      "title": "Serverless: Lambda and Events",
+      "body": "**Lambda** runs your function in response to an **event** without you managing a server. You upload code, choose a runtime (Python, Node.js, Java and more) and set a **memory** size; AWS allocates proportional CPU and bills per millisecond of execution plus per request. A function that runs for 200 ms a few thousand times a month can cost less than a coffee.\n\nEvery function assumes an **execution role** - an IAM role defining exactly what the code may touch, such as writing to one DynamoDB table. No keys live in the code; the SDK picks up temporary credentials from the role automatically.\n\n**Triggers** are how events arrive. An event source mapping pulls from a queue (SQS) or a stream (Kinesis); other services push directly. The most common entry point is **API Gateway**, which turns an HTTP request into a Lambda event and the returned value back into an HTTP response.\n\nReserve Lambda for the right jobs. It fits **event-driven, spiky, short-lived** work: resizing an uploaded image, handling a webhook, a scheduled tidy-up. It fits badly for long-running processes (the maximum is 15 minutes), for steady high-throughput workloads where a small always-on server is cheaper, or for anything needing a persistent connection or large local state.\n\nStatelessness is a hard rule: each invocation may run in a fresh environment, so keep state in S3, DynamoDB or a database. **Cold starts** - the delay while AWS initialises a new environment - are the main performance gotcha, and keeping the deployment package small helps.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the maximum time a single Lambda invocation may run?",
+          "options": [
+            "15 minutes",
+            "5 minutes",
+            "1 hour",
+            "There is no limit"
+          ],
+          "answer": 0,
+          "explain": "Lambda functions time out at 15 minutes, which is why long-running processes do not belong there.",
+          "hint": "A quarter of an hour."
+        },
+        {
+          "type": "mcq",
+          "prompt": "How does a Lambda function get AWS permissions to call other services?",
+          "options": [
+            "It assumes an execution role that grants the needed actions",
+            "It stores an access key inside the deployment package",
+            "It inherits the permissions of whoever uploaded it",
+            "It has full account access by default"
+          ],
+          "answer": 0,
+          "explain": "The execution role is assumed at runtime and issues temporary credentials, so no long-lived key is embedded in the code.",
+          "hint": "The same role concept that EC2 uses via an instance profile."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which workload is the worst fit for Lambda?",
+          "options": [
+            "A process that runs continuously for two hours",
+            "Resizing an image right after it is uploaded to S3",
+            "Handling an inbound webhook",
+            "A nightly scheduled cleanup job"
+          ],
+          "answer": 0,
+          "explain": "Lambda caps at 15 minutes and suits short, event-driven work. A two-hour process must run on EC2, Fargate or similar.",
+          "hint": "One of these exceeds the maximum invocation time."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the path of an HTTP request through an API Gateway + Lambda stack",
+          "items": [
+            "A client sends an HTTP request to the API Gateway endpoint",
+            "API Gateway invokes the Lambda function with the request as its event",
+            "The function runs under its execution role and reads from DynamoDB",
+            "The function returns a value that API Gateway sends back as the HTTP response"
+          ],
+          "explain": "API Gateway is the adapter between HTTP and the Lambda event/response model; the function does the work under its role.",
+          "hint": "HTTP in, event to the function, work done, value out."
+        }
+      ]
+    },
+    {
+      "title": "Infrastructure as Code with Terraform",
+      "body": "**Terraform** lets you describe cloud infrastructure in text files and have the tool create it. Instead of clicking through the console, you write a `.tf` file, run `terraform plan` to preview the change, then `terraform apply` to make it real.\n\nA **provider** is the plugin that knows how to talk to an API; `provider \"aws\" { region = \"eu-west-2\" }` targets AWS. A **resource** is one thing that provider can create:\n\n```hcl\nresource \"aws_s3_bucket\" \"reports\" {\n  bucket = \"deskready-reports\"\n  tags = {\n    Environment = \"dev\"\n  }\n}\n```\n\n`terraform plan` compares your files against the real world and shows the diff - always read it before applying. `apply` performs the change; `destroy` tears everything down. Because the same code can be re-applied, environments stop drifting apart.\n\nTerraform records what it created in a **state file**, the mapping between your code and real resources. Store state remotely (an S3 bucket with locking) and never commit it, because it can contain secrets. **Variables** parameterise the code (`variable \"env\" {}`, then `var.env`), and **outputs** expose useful values such as a database endpoint.\n\nServices map cleanly across clouds. AWS **EC2** is like Azure Virtual Machines or GCP Compute Engine; **S3** like Azure Blob Storage or GCP Cloud Storage; **RDS** like Azure Database or Cloud SQL; **IAM** like Entra ID or Cloud IAM; **Lambda** like Azure Functions or Cloud Functions; and **VPC** like Azure VNet or GCP VPC. Learn one cloud deeply and the rest are largely vocabulary.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `terraform plan` do?",
+          "options": [
+            "Shows the changes Terraform would make, without making them",
+            "Applies the changes immediately",
+            "Deletes all managed resources",
+            "Uploads the state file to S3"
+          ],
+          "answer": 0,
+          "explain": "plan is a dry run: it diffs your configuration against real infrastructure and prints what apply would do. Always read it.",
+          "hint": "It previews; it does not change anything."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is the Terraform state file?",
+          "options": [
+            "The record mapping your configuration to the real resources it created",
+            "A cache of the provider plugins",
+            "The compiled plan output",
+            "A copy of your .tf source files"
+          ],
+          "answer": 0,
+          "explain": "State is how Terraform knows which real resources correspond to your code. It should be stored remotely and kept out of Git because it can hold secrets.",
+          "hint": "Without it, Terraform would not know what it already built."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a Terraform resource that creates an S3 bucket named `deskready-reports`.",
+          "patterns": [
+            {
+              "re": "resource\\s+\"aws_s3_bucket\"\\s+\"[a-z0-9_]+\"\\s*\\{",
+              "m": "Declare an aws_s3_bucket resource with a local name."
+            },
+            {
+              "re": "bucket\\s*=\\s*\"[^\"]+\"",
+              "m": "Set the bucket argument."
+            },
+            {
+              "re": "\\}",
+              "m": "Close the resource block."
+            }
+          ],
+          "solution": "resource \"aws_s3_bucket\" \"reports\" {\n  bucket = \"deskready-reports\"\n}",
+          "explain": "The first label is the resource type (aws_s3_bucket) and the second is your local name used to reference it. The bucket argument is the globally unique name.",
+          "hint": "Two quoted labels after `resource`, then a block with a bucket argument."
+        },
+        {
+          "type": "order",
+          "prompt": "Order a typical Terraform workflow",
+          "items": [
+            "Write resources in a .tf file",
+            "Run terraform init to download the provider",
+            "Run terraform plan and read the diff",
+            "Run terraform apply to create the resources"
+          ],
+          "explain": "init prepares the working directory (providers and modules), plan previews, and apply executes - destroy reverses it when you are finished.",
+          "hint": "Prepare, preview, then perform."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "id": "troubleshooting",
+  "title": "Troubleshooting and Debugging",
+  "subtitle": "A repeatable method that holds up in interviews",
+  "color": "#3ddc84",
+  "order": 2,
+  "description": "A structured method for diagnosing application problems: capture the report, gather evidence, test one hypothesis at a time, and document what you learned so it never costs a day again.",
+  "lessons": [
+    {
+      "title": "Start With the Report",
+      "body": "Every investigation starts with the report, and a sloppy report wastes hours. Capture five things before you touch anything.\n\n**What happened**, in the user's own words, plus the exact error text — copied, not paraphrased. 'Something broke' is useless; `HTTP 500: Order API timeout` is a lead.\n\n**Expected versus actual**: what the user thought would happen versus what really happened. This comparison *is* the bug. If they expected a confirmation email and got none, the search space is already smaller.\n\n**Who, when, and where**: which user or account, which page or action, and the exact **timestamp with time zone**. 'Yesterday afternoon' is three hours wide and shifts with continents.\n\n**Scope**: is it just this user, their whole company, or everyone? Scope is the single fastest narrowing tool you own.\n\n**Reproducibility**: can you make it happen again? To **reproduce** a problem is to trigger it deliberately, on demand. A reproducible bug can be measured, bisected, and proven fixed; an unreproducible one is a ghost that eats days.\n\nA good first reply to any report sounds like: 'I can see the error — to narrow this down, can you tell me exactly what you clicked, and whether colleagues see it too?'",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A user writes: 'It's broken, please fix ASAP.' What is the best first response?",
+          "options": [
+            "Ask what they were doing, what they expected, and for the exact error text",
+            "Restart the production servers immediately",
+            "Close the ticket as incomplete",
+            "Escalate straight to engineering"
+          ],
+          "answer": 0,
+          "explain": "Before any action, turn 'it's broken' into facts: the action, the expectation, and the literal error text."
+        },
+        {
+          "type": "input",
+          "prompt": "What word describes the ability to make a problem happen again on demand?",
+          "answers": ["reproduce", "reproduction", "reproducible"],
+          "hint": "The re- prefix plus 'produce'.",
+          "explain": "Reproducing a bug means triggering it deliberately — the first real step toward diagnosing and proving any fix."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why does capturing the exact timestamp with time zone matter so much?",
+          "options": [
+            "It lets you find the matching entries in server logs",
+            "It fills in a required field of the ticket template",
+            "It impresses the customer",
+            "Timestamps are required by law in every country"
+          ],
+          "answer": 0,
+          "explain": "Logs are searched by time; without an exact timestamp and zone you are searching a fog."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of good bug-report intake in order, starting from the user's raw description",
+          "items": [
+            "Copy the exact error message, word for word",
+            "Establish what the user expected versus what actually happened",
+            "Record the timestamp, including the time zone",
+            "Ask whether anyone else is affected",
+            "Ask for the steps that reproduce the problem"
+          ],
+          "explain": "Error text, expected versus actual, time, scope, reproduction — this intake sequence feeds every later step."
+        }
+      ]
+    },
+    {
+      "title": "A Repeatable Method",
+      "body": "Guessing feels fast and is slow. The engineer who guesses, changes five things, and 'fixes' the problem learns nothing and usually breaks something else. A **repeatable method** beats brilliance, because it works when you are tired and it teaches you as you go.\n\nThe loop:\n\n1. **Understand** the problem, restated in your own words — expected versus actual, scope, reproduction.\n2. **Gather evidence**: logs, error text, request IDs, recent changes. Evidence before opinions.\n3. **Form a hypothesis**: a specific, testable statement — 'the nightly job fails because the API key expired at midnight', not 'maybe it's the network'.\n4. **Test the smallest thing** that could confirm or kill that hypothesis. Smallest means cheapest and most reversible.\n5. **Narrow**: if the test fails, the hypothesis dies and the new evidence usually points at the next one. Repeat.\n6. **Confirm the cause**: reproduce the failure, apply the fix, and watch it succeed for the same user or case.\n\nThe discipline that makes this work: change **one variable at a time**. If you change two things and it starts working, you have learned nothing — and the next outage will teach you the same lesson again.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the repeatable troubleshooting loop in order, from the first report to a confirmed cause",
+          "items": [
+            "Understand the problem in your own words",
+            "Gather evidence from logs, errors, and recent changes",
+            "Form a specific, testable hypothesis",
+            "Test the smallest thing that could confirm or kill it",
+            "Narrow to the true cause and confirm the fix"
+          ],
+          "explain": "Understand, gather, hypothesize, test small, narrow, confirm — run this loop instead of guessing."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why is guessing causes discouraged?",
+          "options": [
+            "Changing several things at once hides what actually fixed the problem",
+            "Guessing is against company policy at every software company",
+            "It is always slower than testing every possible cause",
+            "Hypotheses must be approved by a manager before testing"
+          ],
+          "answer": 0,
+          "explain": "If three things change and the problem vanishes, you know nothing — and you cannot repeat the fix next time."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What makes a hypothesis useful during an investigation?",
+          "options": [
+            "It is specific and testable — one statement that evidence can prove or disprove",
+            "It is written in the official ticket template",
+            "It names the most senior engineer on the team",
+            "It predicts how the customer will feel about the answer"
+          ],
+          "answer": 0,
+          "explain": "'The key expired at midnight' can be checked against logs; 'maybe it's the network' cannot."
+        },
+        {
+          "type": "input",
+          "prompt": "When testing a hypothesis, how many variables should you change at a time? (a number)",
+          "answers": ["one", "1"],
+          "hint": "It is the loneliest number.",
+          "explain": "One variable at a time: any other result is ambiguous, no matter how smart the change was."
+        }
+      ]
+    },
+    {
+      "title": "Collecting Evidence",
+      "body": "Evidence turns opinions into facts. Collect these, in rough order of the value they deliver:\n\n- **Screenshots** of the failure, including the URL bar and the whole error — not a cropped fragment.\n- **Exact error text**, copied from the page, dialog, or log. Log searches are literal; 'something about a timeout' finds nothing.\n- **Timestamps with time zones**. Servers usually log in UTC; customers live somewhere else. Convert before comparing, or you will chase a bug that happened 'before' the error that triggered it.\n- **Request IDs** (also called **correlation IDs**): a unique string stamped on every step of one user's request across the front end, API, and logs. Paste it into the log search and you see that single request's whole journey — the fastest evidence there is.\n- **Browser developer tools**: opened with F12, the console shows JavaScript errors and the network tab shows which API calls failed and with which status codes.\n- **Recent changes**: deploys, config edits, feature flags, even a third party's maintenance window. 'Did anything change?' resolves more tickets than any other question.\n\nStore what you find on the ticket itself. Evidence in your head disappears when you go home.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is a correlation ID (also called a request ID)?",
+          "options": [
+            "A unique string that ties together every log entry belonging to one user's request",
+            "A customer's account number",
+            "The name of the deploy pipeline",
+            "A password reset token"
+          ],
+          "answer": 0,
+          "explain": "One ID follows one request through front end, API, and logs — paste it into the log search and watch the whole journey."
+        },
+        {
+          "type": "input",
+          "prompt": "Which browser toolkit, usually opened with F12, shows JavaScript errors and failed API calls?",
+          "answers": ["developer tools", "devtools", "dev tools"],
+          "hint": "Fourteen letters, two words — every support engineer lives in it.",
+          "explain": "Developer tools (devtools) hold the console for JavaScript errors and the network tab for failed API calls and status codes."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Servers log in UTC, but a customer in New York reports an error at '2 p.m. their time'. Why does this matter?",
+          "options": [
+            "You must convert to the server's time zone or you will search the wrong window in the logs",
+            "UTC logs are faster to search than local ones",
+            "New York does not observe time zones",
+            "It does not matter for support work"
+          ],
+          "answer": 0,
+          "explain": "Unconverted times send your log search to the wrong hour — convert first, search second."
+        },
+        {
+          "type": "order",
+          "prompt": "Put evidence collection in the order that gets you to an answer fastest",
+          "items": [
+            "Copy the exact error text from the screen",
+            "Note the timestamp and convert it to the server's time zone",
+            "Find the correlation ID for the failing request",
+            "Search the logs for that ID and read the error path",
+            "Check what was deployed or reconfigured around that time"
+          ],
+          "explain": "Literal error, exact time, request ID, logs, then recent changes — each step narrows the next."
+        }
+      ]
+    },
+    {
+      "title": "Narrowing the Cause",
+      "body": "Narrowing is the art of shrinking the search space. Your first cut is always **blast radius** — how far the problem spreads. One user? Suspect that user's data, permissions, or account config. One site, company, or tenant? Suspect that tenant's settings or a bad batch of data. Everyone? Suspect the latest release, shared infrastructure, or a third party.\n\nYour second cut is the kind of thing that broke:\n\n- **Config** — settings and feature flags, changeable without shipping code.\n- **Code** — the application itself, usually behaving differently after a deploy.\n- **Data** — a specific record that is malformed, duplicated, or missing.\n- **Infrastructure** — servers, databases, queues, certificates, network paths.\n\nThen the oldest question in operations: **did anything change?** Most incidents are caused by a change — a deploy, a config edit, an expired certificate, a partner's outage. Check the deploy board and the change log before theorizing.\n\nFinally, compare a broken case with a working one, changing **one variable at a time**. The difference between the two cases is usually the cause, staring at you in a config diff or a single row of data.",
+      "exercises": [
+        {
+          "type": "input",
+          "prompt": "What two-word term describes how far a problem spreads — one user, one tenant, or everyone?",
+          "answers": ["blast radius"],
+          "hint": "An artillery metaphor: the area a single hit affects.",
+          "explain": "Blast radius is your first and fastest cut: one user, one tenant, or the whole system point at very different causes."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Only users in a single tenant see a blank dashboard. What does that scope suggest first?",
+          "options": [
+            "Something specific to that tenant — its settings or its data — rather than a code release",
+            "The entire production database is down",
+            "Every customer's browser is broken",
+            "The company's marketing site is slow"
+          ],
+          "answer": 0,
+          "explain": "If one tenant is affected, shared code and shared infrastructure are usually innocent; the tenant's own config or data is the suspect."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which question resolves the most incidents fastest?",
+          "options": [
+            "'Did anything change recently?' — deploys, configs, certificates, third parties",
+            "'What operating system does the user run?'",
+            "'What time of day does the user usually log in?'",
+            "'How many tickets has this user filed this year?'"
+          ],
+          "answer": 0,
+          "explain": "Most incidents follow a change, so the change log is the highest-yield place to look first."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the narrowing process in order, from the first question to the final comparison",
+          "items": [
+            "Determine the blast radius: who exactly is affected?",
+            "Check what changed recently: deploys, configs, certificates",
+            "Decide whether it looks like config, code, data, or infrastructure",
+            "Compare a broken case with a working one",
+            "Change one variable at a time and retest"
+          ],
+          "explain": "Scope, recent changes, type of fault, side-by-side comparison, single-variable test — the search space shrinks at every step."
+        }
+      ]
+    },
+    {
+      "title": "Fix, Verify, Document",
+      "body": "Getting the system healthy is only two-thirds of the job. A **workaround** keeps the customer moving without removing the real problem: re-importing a stuck record, clearing a cache by hand, asking the user to retry. Workarounds are legitimate and sometimes urgent — but label them clearly, and always raise a follow-up ticket, because a workaround with no follow-up becomes a permanent temporary fix.\n\nA **fix** removes the cause: a corrected config, a patched release, a repaired data row, a renewed certificate. Fixes require **verification** — go back to the original reporter, or reproduce their exact steps yourself, and confirm the expected behavior. 'It works on my screen' is not evidence.\n\nAfterwards, write the **root cause analysis** (RCA): not just what you did, but *why* it broke, in plain language. An RCA saying 'cleared the queue and it worked' teaches nothing; one saying 'a malformed CSV upload killed the nightly job, which filled the retry queue until exports stopped' teaches everyone.\n\nThen put it in the **knowledge base** (KB): searchable articles with symptoms, diagnosis steps, and fixes. The next person to hit this issue resolves it in minutes because you wrote it down — that is the real leverage of the job, and interviewers love hearing about it.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between a workaround and a fix?",
+          "options": [
+            "A workaround keeps things running without removing the cause; a fix removes the cause",
+            "They are two words for exactly the same thing",
+            "A fix is always faster than a workaround",
+            "A workaround is something only customers do"
+          ],
+          "answer": 0,
+          "explain": "Workarounds restore service now; fixes remove the cause. Real tickets often need both, in that order."
+        },
+        {
+          "type": "input",
+          "prompt": "What does RCA stand for? (the write-up explaining why something broke)",
+          "answers": ["root cause analysis"],
+          "hint": "You analyze the root ___ of the problem.",
+          "explain": "Root cause analysis explains why it broke, not only what you did — it is what stops the same ticket returning."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why does writing a knowledge base article matter?",
+          "options": [
+            "It turns today's mystery into tomorrow's checklist, so the next person is much faster",
+            "It replaces the need to fix bugs properly",
+            "It is only required for compliance audits",
+            "Customers write the articles, not support engineers"
+          ],
+          "answer": 0,
+          "explain": "The knowledge base is the team's shared memory — a good article converts a day-long investigation into a five-minute checklist."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the close-out of a ticket in order, from resolution to archive",
+          "items": [
+            "Apply the fix (or clearly flag the workaround and raise a follow-up ticket)",
+            "Verify the fix with the original reporter",
+            "Write the root cause in plain language",
+            "Add or update the knowledge base article",
+            "Close the ticket with full notes for whoever reads it later"
+          ],
+          "explain": "Fix, verify, root cause, knowledge base, close — skipping any step is how the same ticket comes back next month."
+        }
+      ]
+    }
+  ]
+}

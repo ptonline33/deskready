@@ -1,0 +1,337 @@
+{
+  "id": "capstone",
+  "title": "Capstone & Interview Prep",
+  "subtitle": "Week 26: turn the work into an offer",
+  "color": "#c084fc",
+  "order": 22,
+  "description": "The finishing week: assemble a capstone project that proves you can do the job end to end, add tests and CI, drill the SQL and Linux interview scenarios, write STAR stories from your support experience, and rehearse the portfolio walkthrough that turns practice into an offer.",
+  "lessons": [
+    {
+      "title": "Assembling a Capstone That Gets Interviews",
+      "body": "A capstone is the proof that you can do the job end to end, not just pass a quiz. Pick one project from the study guide and take it seriously: the **support-log analytics warehouse** (reuses your support background), a **cloud data platform** (Terraform + S3 + RDS + Lambda + dbt), or a **domain pipeline** (clinical or bioinformatics data into a warehouse).\n\nWhat separates a portfolio project that gets interviews from one that does not is **reproducibility and explanation**. A stranger should be able to clone the repo, run one command, and watch it work. That means:\n\n1. A README that opens with the problem in one sentence and the architecture in one diagram.\n2. Setup steps that work on a clean machine, with dependencies pinned.\n3. Tests that run, and a line on how to run them.\n4. A short 'what I learned / what I would do next' section.\n\nDraw the architecture (Excalidraw, draw.io, or a Mermaid block inside the README) showing source -> transform -> warehouse -> dashboard. The diagram is usually the first thing an interviewer looks at, so make it show the whole flow, not a file tree.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What should a capstone README lead with?",
+          "options": [
+            "The problem it solves and one architecture diagram",
+            "A complete list of every command you typed while building it",
+            "Your personal biography and career goals",
+            "A raw dump of the database schema"
+          ],
+          "answer": 0,
+          "explain": "A reader needs to understand the problem and the shape of the solution before anything else; the diagram does that fastest.",
+          "hint": "Think about what a stranger needs first."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these README sections into a sensible order, top to bottom",
+          "items": [
+            "Overview: the problem in one sentence",
+            "Architecture diagram",
+            "How to run it",
+            "Tests and results",
+            "What I learned / next steps"
+          ],
+          "explain": "Problem, then shape, then how to reproduce, then evidence it works, then reflection.",
+          "hint": "Start with why, finish with what you gained."
+        },
+        {
+          "type": "input",
+          "prompt": "Which text-based diagram language can you embed in a fenced code block inside a Markdown README?",
+          "answers": ["mermaid"],
+          "explain": "A Mermaid block renders as a diagram on GitHub, so the architecture travels with the README.",
+          "hint": "It renders on GitHub and starts with a flow or graph keyword."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a README skeleton for your capstone: an Overview heading, an Architecture section, and a 'How to run' section.",
+          "patterns": [
+            { "re": "##+\\s*(overview|summary|about)", "m": "start with an Overview section" },
+            { "re": "##+\\s*(architecture|design|diagram)", "m": "include an Architecture section" },
+            { "re": "##+\\s*(how to run|usage|getting started|setup)", "m": "include a How to run section" }
+          ],
+          "solution": "# Support-Log Analytics Warehouse\n\n## Overview\nTurns raw support logs into a queryable warehouse that shows error trends and resolution times.\n\n## Architecture\nSource logs -> Python ETL -> PostgreSQL -> dbt models -> dashboard.\n\n## How to run\n```bash\ndocker compose up\n```\n\n## Tests and results\n`dbt build` passes 24 tests.\n\n## What I learned\nIncremental models and idempotent loads.",
+          "explain": "A README with these three sections already tells a reviewer what the project is, how it is shaped, and how to run it.",
+          "hint": "Use Markdown `##` headings."
+        }
+      ]
+    },
+    {
+      "title": "Testing and CI for Data Projects",
+      "body": "Tests are how you prove the work is not a one-off that only runs on your laptop. There are two kinds:\n\n- **Code tests** with `pytest` check that your Python transforms do what you claim (a function that trims whitespace really does, an idempotent load does not duplicate rows).\n- **Data tests** with **dbt** check the data itself: `not_null`, `unique`, `relationships`, `accepted_values`. A failing `relationships` test catches a broken foreign key before anyone trusts the dashboard.\n\n**Continuous integration (CI)** runs those tests automatically every time you push. On GitHub that is a workflow file under `.github/workflows/` that installs dependencies, runs `pytest`, and runs `dbt build`. When it passes, GitHub shows a **green check or badge** on the repository - a small but real signal to an interviewer that you work like a professional.\n\nThe habit matters more than the tool: change something, push, watch the tests run, fix what breaks. That loop is most of what a data engineer does all day.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is continuous integration (CI) mainly for?",
+          "options": [
+            "Automatically running tests every time you push code",
+            "Deploying to production on a schedule",
+            "Formatting your code to a house style",
+            "Storing your project in the cloud"
+          ],
+          "answer": 0,
+          "explain": "CI is the automated test (and build) run on every change, so problems surface immediately instead of at release time.",
+          "hint": "It runs on every push."
+        },
+        {
+          "type": "input",
+          "prompt": "Which built-in dbt test checks that a column has no duplicate values?",
+          "answers": ["unique"],
+          "explain": "`unique` fails if any value repeats - the usual test on a primary key or surrogate key.",
+          "hint": "One word, and it is the opposite of 'duplicated'."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these steps of a data-project CI run into order",
+          "items": [
+            "Check out the repository",
+            "Install dependencies",
+            "Run the unit tests (pytest)",
+            "Run the data tests (dbt build)",
+            "Report pass or fail"
+          ],
+          "explain": "Code tests run before the data build, so a broken transform fails fast and cheaply.",
+          "hint": "Reproducing the code comes before testing behaviour."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why run tests on every push rather than once before releasing?",
+          "options": [
+            "Because a later change can silently break an earlier feature",
+            "Because CI tools are free and you should use them",
+            "Because it makes the repository look busier",
+            "Because tests only work when run automatically"
+          ],
+          "answer": 0,
+          "explain": "Continuous testing catches regressions the moment they are introduced, when the fix is small and the cause is obvious.",
+          "hint": "Think about regressions."
+        }
+      ]
+    },
+    {
+      "title": "SQL Interview Drills",
+      "body": "SQL rounds reward pattern recognition and clear thinking aloud. The classic shapes, and the tool for each:\n\n- **Top-N per group** (highest salary per team): a window function, `ROW_NUMBER() OVER (PARTITION BY team ORDER BY salary DESC)`, then filter where the number is 1.\n- **Change over time** (month-over-month growth): `LAG()` to reach the previous row.\n- **Deduplicate, keeping the latest**: number the rows in each group newest-first, keep number 1.\n- **Gaps and islands** (consecutive login streaks): compare each row to the previous and reset a counter when the chain breaks.\n- **Explain this plan**: point at the scan, the join, and the sort, and say which one dominates.\n\nDevelop a rhythm: restate the question, name the tables and keys, write a first version, then optimise. Say what you are doing as you go - interviewers score the reasoning as much as the query.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "Show the name and salary of the three highest-paid employees, highest first.",
+          "starter": "SELECT name, salary FROM employees ",
+          "db": [
+            { "name": "employees", "columns": ["id", "name", "team", "salary", "manager_id"], "rows": [
+              [1, "Alice", "Platform", 120000, null],
+              [2, "Ben", "Billing", 95000, 1],
+              [3, "Cara", "Platform", 110000, 1],
+              [4, "Dan", "Identity", 85000, 1],
+              [5, "Eve", "Billing", 105000, 2],
+              [6, "Finn", "Platform", 95000, 3]
+            ] }
+          ],
+          "solution": "SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 3",
+          "expected": {
+            "columns": ["name", "salary"],
+            "rows": [["Alice", 120000], ["Cara", 110000], ["Eve", 105000]]
+          },
+          "ordered": true,
+          "hint": "Sort by salary descending, then keep the first three.",
+          "explain": "The three biggest salaries are 120000, 110000 and 105000; the 95000 tie never reaches the top three."
+        },
+        {
+          "type": "sql",
+          "prompt": "How many employees earn more than 100000? Show just the count.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "employees", "columns": ["id", "name", "team", "salary", "manager_id"], "rows": [
+              [1, "Alice", "Platform", 120000, null],
+              [2, "Ben", "Billing", 95000, 1],
+              [3, "Cara", "Platform", 110000, 1],
+              [4, "Dan", "Identity", 85000, 1],
+              [5, "Eve", "Billing", 105000, 2],
+              [6, "Finn", "Platform", 95000, 3]
+            ] }
+          ],
+          "solution": "SELECT COUNT(*) FROM employees WHERE salary > 100000",
+          "expected": { "columns": ["COUNT(*)"], "rows": [[3]] },
+          "hint": "COUNT(*) plus a WHERE filter on salary.",
+          "explain": "Alice, Cara and Eve clear 100000; that is three rows."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which technique finds the single highest-paid employee within each team?",
+          "options": [
+            "ROW_NUMBER() OVER (PARTITION BY team ORDER BY salary DESC) and keep row 1",
+            "ORDER BY salary DESC LIMIT 1",
+            "SELECT * WHERE salary = MAX(salary)",
+            "COUNT(*) OVER (PARTITION BY team)"
+          ],
+          "answer": 0,
+          "explain": "A window function numbers rows within each team, so you can keep the top one per group - plain LIMIT 1 only ever returns one row overall.",
+          "hint": "You need one row per group, not one row in total."
+        },
+        {
+          "type": "input",
+          "prompt": "Name the window function that assigns sequential numbers to rows within a partition.",
+          "answers": ["row_number", "row_number()"],
+          "explain": "`ROW_NUMBER()` numbers rows 1, 2, 3 within each partition, which is the basis of top-N-per-group and dedupe-keeping-latest.",
+          "hint": "It counts rows, but per partition."
+        }
+      ]
+    },
+    {
+      "title": "Linux & Troubleshooting Interview Scenarios",
+      "body": "Troubleshooting interviews hand you a symptom and watch how you think. Never guess - work a loop: **clarify, hypothesise, gather evidence, narrow, fix, verify, document.**\n\n- **'The server is out of disk.'** Start with `df -h` to find the full filesystem, then `du -sh *` down the largest directory to locate the culprit. Common causes: runaway logs, a filled `/tmp`, an unrotated database.\n- **'Load is high but the app is idle.'** Run `top` (or `htop`) to see what is actually consuming CPU, then `ps aux` to name the process; check I/O with `iostat` if CPU is low but load is high.\n- **'The service will not start.'** `systemctl status app` shows the last state; `journalctl -u app -n 50` shows the error. Read the actual message before changing anything.\n- **'Port 8080 is already in use.'** `ss -tulpn` shows which process holds the port.\n\nNarrate each step: say which command you would run and what its output would tell you. The commands matter less than the method - the interviewer is checking that you form and test hypotheses instead of guessing.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A server is reported 'out of disk'. What is your first command?",
+          "options": [
+            "df -h",
+            "rm -rf /tmp/*",
+            "reboot",
+            "du -sh /var/log"
+          ],
+          "answer": 0,
+          "explain": "`df -h` shows which filesystem is full and how full; deleting files or restarting before you know that is guessing.",
+          "hint": "Find out which disk, before touching anything."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the troubleshooting loop into order",
+          "items": [
+            "Clarify the symptom and its impact",
+            "Form a hypothesis",
+            "Gather evidence with commands",
+            "Narrow to the cause and fix it",
+            "Verify the fix and document it"
+          ],
+          "explain": "A repeatable loop beats guessing; it also gives the interviewer something to follow as you talk.",
+          "hint": "Understand first, act last."
+        },
+        {
+          "type": "input",
+          "prompt": "Which command follows one systemd service's logs live? (write it as journalctl ...)",
+          "answers": ["journalctl -u", "journalctl -u app", "journalctl -fu", "journalctl -f -u"],
+          "explain": "`journalctl -u <service> -f` shows the unit's log and follows it, which is how you watch a service fail in real time.",
+          "hint": "The unit flag is -u."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Load average is high but CPU looks idle. What should you suspect next?",
+          "options": [
+            "Processes blocked on disk I/O",
+            "A broken network cable",
+            "The clock is wrong",
+            "Too many users logged in"
+          ],
+          "answer": 0,
+          "explain": "Load counts runnable and uninterruptible tasks; heavy disk I/O blocks processes without using much CPU, so check with top/iostat.",
+          "hint": "Load is not only CPU."
+        }
+      ]
+    },
+    {
+      "title": "Behavioural Interviews with STAR",
+      "body": "Behavioural questions ('tell me about a time you...') are scored on structure and evidence. Use **STAR**:\n\n- **Situation** - the context, in one sentence.\n- **Task** - what you were responsible for.\n- **Action** - what *you* did, in first person and specific.\n- **Result** - the outcome, with a number if you can.\n\nYour support experience is full of material. Prepare four stories you can reuse for many questions:\n\n1. **A hard incident you owned** - how you diagnosed it and restored service.\n2. **A process you improved** - a macro, a runbook, a fix that cut repeat tickets.\n3. **A disagreement or escalation** - how you handled it without dropping the customer.\n4. **Going beyond your role** - something you learned or automated that was not asked.\n\nKeep each answer to about two minutes, always end on the **Result**, and resist explaining the whole timeline before the point. An interviewer remembers the outcome, not the hour-by-hour.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the STAR parts into order",
+          "items": [
+            "Situation: the context",
+            "Task: your responsibility",
+            "Action: what you did",
+            "Result: the outcome, ideally with a number"
+          ],
+          "explain": "STAR runs context -> responsibility -> action -> outcome, ending on the result.",
+          "hint": "Start broad, end on impact."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What should a strong STAR answer always end on?",
+          "options": [
+            "The result, with a number if possible",
+            "A list of every tool you know",
+            "An apology for the incident",
+            "The name of your manager"
+          ],
+          "answer": 0,
+          "explain": "Ending on a quantified result leaves the interviewer with the impact, which is what they score.",
+          "hint": "It is the 'R'."
+        },
+        {
+          "type": "input",
+          "prompt": "What four-letter acronym structures a behavioural answer?",
+          "answers": ["star"],
+          "explain": "STAR - Situation, Task, Action, Result - gives a predictable shape to any 'tell me about a time' question.",
+          "hint": "It also means the title of the method."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a short STAR story from a support incident. Label Situation, Task, Action and Result, and include at least one number.",
+          "patterns": [
+            { "re": "situation", "m": "label the Situation" },
+            { "re": "task", "m": "label the Task" },
+            { "re": "action", "m": "label the Action" },
+            { "re": "result", "m": "label the Result" },
+            { "re": "\\d", "m": "include at least one number in the result" }
+          ],
+          "solution": "Situation: our checkout API returned 500s during a sale. Task: as on-call I owned restoring service. Action: I read the logs, found a connection-pool exhaustion, raised the limit and added an alert. Result: service restored in 20 minutes and the alert caught the next spike before customers noticed.",
+          "explain": "A labelled story with a number is memorable and easy for the interviewer to follow.",
+          "hint": "Use the four labels, and put a figure in the Result."
+        }
+      ]
+    },
+    {
+      "title": "The Portfolio Walkthrough and Questions You Ask",
+      "body": "The portfolio walkthrough is a five-minute talk. Use a fixed flow so you do not ramble:\n\n1. **Problem** - what the project does and who it helps.\n2. **Architecture** - walk the diagram: source -> transform -> warehouse -> output.\n3. **Trade-offs** - one or two decisions and why (for example: batch over streaming because latency did not matter; a star schema because the questions were analytical).\n4. **Results** - what works, what the tests cover.\n5. **Next steps** - what you would build next.\n\nExpect 'why did you choose X?' questions. The good answer states the constraint and the alternative you rejected - showing you weighed options rather than copying a tutorial.\n\nThen **ask your own questions**. Strong ones: how does the team handle on-call? What does the data stack look like today? How is data quality monitored? What does success look like in the first 90 days? These signal that you are evaluating them too, and they are genuinely useful.\n\nFinish the week by applying to five target roles and writing down the feedback from each - it is the input that shapes your next study cycle.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the portfolio walkthrough into order",
+          "items": [
+            "The problem it solves",
+            "The architecture diagram",
+            "The key trade-offs you made",
+            "The results and test coverage",
+            "What you would build next"
+          ],
+          "explain": "Problem, shape, decisions, evidence, future - a tight five-minute story.",
+          "hint": "Same shape as a good README."
+        },
+        {
+          "type": "mcq",
+          "prompt": "The interviewer asks 'why did you choose a batch pipeline?' What is the strongest answer?",
+          "options": [
+            "State the constraint, then the alternative you rejected and why",
+            "Say it was the default in a tutorial you followed",
+            "Say batch is always better than streaming",
+            "Change the subject to your strengths"
+          ],
+          "answer": 0,
+          "explain": "Showing the constraint and the rejected alternative demonstrates engineering judgement, which is what the question is really testing.",
+          "hint": "It is about demonstrating judgement."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is a strong question to ask the interviewer?",
+          "options": [
+            "How is data quality monitored across the pipelines?",
+            "Do I have to work at all on Fridays?",
+            "Can I leave early every day?",
+            "How quickly can I get promoted?"
+          ],
+          "answer": 0,
+          "explain": "A question about how the team actually operates shows you care about doing the work well and helps you judge the role.",
+          "hint": "Pick the one a future colleague would respect."
+        },
+        {
+          "type": "input",
+          "prompt": "How many target roles should you apply to this week and record feedback from? (give the number)",
+          "answers": ["5", "five"],
+          "explain": "Five applications with feedback logged turns job hunting into a measurable loop rather than a string of one-off hopes.",
+          "hint": "The schedule number for this week."
+        }
+      ]
+    }
+  ]
+}

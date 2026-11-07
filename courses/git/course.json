@@ -1,0 +1,340 @@
+{
+  "id": "git",
+  "title": "Git & Version Control",
+  "subtitle": "Weeks 3-4: track every change with confidence",
+  "color": "#ff8a3d",
+  "order": 13,
+  "description": "Version control from first principles: the working tree and staging area, commits and history, branching and merging, remotes and pull requests, safely rewriting history, and recovering from mistakes.",
+  "lessons": [
+    {
+      "title": "What Version Control Is",
+      "body": "Version control is a system that records the history of a project so you can see what changed, when, and why. Git stores your project inside a **repository** (the `.git` folder), a database of **snapshots**. Each snapshot is a **commit**: a complete record of the tracked files at that moment, plus the author, timestamp, message, and a pointer to its parent commit. Because every commit points at its parent, the commits form a chain — the project's history.\n\nThree areas describe where a change lives:\n\n- The **working tree** is the folder you edit.\n- The **staging area** (or index) is a holding pen for changes you want in the next snapshot.\n- The **repository** is the committed history.\n\n`HEAD` is a special pointer to the commit you currently have checked out — usually the tip of your current branch. As you commit, `HEAD` moves forward.\n\nThe **WHY** matters: people without version control keep `report_final_v3_FINAL_really.doc` copies. Copies cannot tell you *why* a line changed, cannot merge two people's work, and cannot be rolled back cleanly. Git records snapshots cheaply (it stores each file's content once and reuses it) and lets you compare, branch, and undo with confidence.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Where do changes live once you have marked them for the next commit but not yet committed?",
+          "options": [
+            "The staging area (index)",
+            "The remote server",
+            "The repository history",
+            "The .gitignore file"
+          ],
+          "answer": 0,
+          "hint": "It sits between your working tree and a commit.",
+          "explain": "You stage changes with git add; they wait in the staging area until git commit writes them into history."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does HEAD point to in a normal repository?",
+          "options": [
+            "The commit currently checked out, usually the tip of your branch",
+            "The oldest commit in the project",
+            "The remote repository named origin",
+            "The .git directory itself"
+          ],
+          "answer": 0,
+          "hint": "It is where you are right now, and it moves when you commit.",
+          "explain": "HEAD is a pointer to the current commit, normally the tip of the active branch; committing advances it."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that shows a compact, one-line-per-commit history",
+          "answers": [
+            "git log --oneline"
+          ],
+          "hint": "git log with a single flag that shortens each entry.",
+          "explain": "git log --oneline prints the short hash and subject of each commit."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the journey of a single change into the correct order",
+          "items": [
+            "Edit the file in the working tree",
+            "Stage it with git add",
+            "Create the snapshot with git commit",
+            "The change becomes part of the committed history"
+          ],
+          "explain": "Working tree, then staging area, then commit — this is the loop you will repeat hundreds of times.",
+          "hint": "A change is edited, then staged, then committed."
+        }
+      ]
+    },
+    {
+      "title": "Your First Repository",
+      "body": "Create a repository with `git init`, which makes a hidden `.git` folder in the current directory. That folder *is* the repository; delete it and Git stops tracking the project. You do not need a remote server to start.\n\nThe day-to-day loop:\n\n```\ngit init                 # start a repository here\ngit status               # what changed, what is staged\ngit add README.md        # stage one file\ngit add .                # stage everything changed\ngit commit -m \"Add README with setup steps\"\ngit log --oneline        # compact history\ngit diff                 # unstaged changes\ngit diff --staged        # exactly what you are about to commit\n```\n\nCheck `git diff --staged` before every commit. It is the last chance to catch a stray debug line or a password.\n\nUse a `.gitignore` file to list paths Git should never track — `node_modules/`, `.env`, `*.log`. Anything already tracked stays tracked, so add secrets to `.gitignore` *before* the first commit.\n\nA good **commit message** has a short imperative subject (\"Fix login timeout\", not \"fixed stuff\") of about 50 characters, then a blank line, then a body explaining **why** the change was needed. Future-you, reading `git log` at 2am, is the audience.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does git init actually do?",
+          "options": [
+            "Creates a hidden .git folder, turning the current directory into a repository",
+            "Uploads the project to GitHub",
+            "Creates the first commit automatically",
+            "Deletes any old history"
+          ],
+          "answer": 0,
+          "hint": "It only sets up local bookkeeping; no commit and no server involved.",
+          "explain": "git init just creates the .git directory; you still need to stage and commit your files."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that stages every changed and new file in the current directory",
+          "answers": [
+            "git add .",
+            "git add -A",
+            "git add --all"
+          ],
+          "hint": "git add, then the symbol meaning everything here.",
+          "explain": "git add . (or -A / --all) stages all changes so the next commit includes them."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a good commit message for a change that adds a `.gitignore` and stops tracking `node_modules`. It needs a short imperative subject line, a blank line, then a body explaining why.",
+          "patterns": [
+            {
+              "re": "^[A-Z][^\\n]{4,60}\\n\\s*\\n",
+              "m": "a short subject line, then a blank line before the body"
+            },
+            {
+              "re": "node_modules|\\.env|ignore|gitignore",
+              "m": "mention what is being ignored (node_modules, .env or .gitignore)"
+            },
+            {
+              "re": "\\n\\s*\\n[^\\n]{15,}",
+              "m": "a body paragraph of at least a sentence explaining why"
+            }
+          ],
+          "solution": "Stop tracking node_modules and local env files\n\nCommitting node_modules bloats the repository and creates constant, meaningless merge conflicts. Add .gitignore entries so build output, dependencies and local environment files stay out of version control.",
+          "explain": "A tight subject, a blank line, then a body that explains the reason — exactly what a reviewer needs.",
+          "hint": "Subject under ~50 characters, blank line, then why."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the daily commit loop in the correct order",
+          "items": [
+            "Edit your files",
+            "Stage the changes with git add",
+            "Review with git diff --staged",
+            "Commit with a clear message"
+          ],
+          "explain": "Review before you commit; it is your last guard against secrets and debug code.",
+          "hint": "Edit, stage, review, then commit."
+        }
+      ]
+    },
+    {
+      "title": "Branching and Merging",
+      "body": "A **branch** is just a movable pointer to a commit. `main` is the default one. Creating a branch costs almost nothing — it writes a name pointing at the current commit. This is why Git encourages a branch for every feature or fix.\n\n```\ngit branch feature/login     # create a branch at the current commit\ngit switch feature/login     # move onto it (older syntax: git checkout)\ngit switch -c fix/typo       # create and switch in one step\ngit switch main              # back to main\ngit merge feature/login      # bring its commits into main\ngit branch -d feature/login  # delete it once merged\n```\n\nWhen you merge, Git finds the **merge base** — the last commit the two branches shared. If `main` has not moved since you branched, Git simply slides the pointer forward: a **fast-forward**, and no new commit appears. If both branches have new commits, Git creates a **merge commit** with two parents, joining the histories.\n\nConflicts happen when both branches changed the same lines. Git marks the file with `<<<<<<<`, `=======`, `>>>>>>>` and pauses the merge. Edit the file to the version you want, delete the markers, then:\n\n```\ngit add app.js\ngit merge --continue\n# or back out entirely with:\ngit merge --abort\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "In Git, what is a branch?",
+          "options": [
+            "A movable pointer to a commit",
+            "A full copy of the project folder",
+            "A remote server holding your code",
+            "A type of commit message"
+          ],
+          "answer": 0,
+          "hint": "Creating one is nearly free — it is only a name pointing somewhere.",
+          "explain": "A branch is a lightweight pointer to a commit; that is why branching is cheap and encouraged."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the single command that creates and switches to a new branch named feature/login",
+          "answers": [
+            "git switch -c feature/login",
+            "git checkout -b feature/login"
+          ],
+          "hint": "switch with the create flag -c, or checkout with -b.",
+          "explain": "git switch -c feature/login creates the branch and moves you onto it in one step."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps for resolving a merge conflict in the correct order",
+          "items": [
+            "Open the conflicted file and find the <<<<<<< markers",
+            "Edit the file to the version you want and delete the markers",
+            "Stage the resolved file with git add",
+            "Finish the merge with git merge --continue"
+          ],
+          "explain": "Resolve, clean up the markers, stage, then continue — or use git merge --abort to start over.",
+          "hint": "Fix the file first, then stage, then continue."
+        },
+        {
+          "type": "mcq",
+          "prompt": "When does Git create a merge commit instead of doing a fast-forward?",
+          "options": [
+            "When both branches have new commits since they diverged",
+            "Whenever you merge any branch",
+            "Only when there is a conflict",
+            "Whenever the branch name contains a slash"
+          ],
+          "answer": 0,
+          "hint": "It needs two lines of history to join.",
+          "explain": "If both branches advanced, Git joins the two histories with a merge commit that has two parents."
+        }
+      ]
+    },
+    {
+      "title": "Remotes and Collaboration",
+      "body": "A **remote** is a named URL to another copy of the repository, usually on GitHub, GitLab or Bitbucket. `origin` is the default name for the one you cloned from.\n\n```\ngit clone git@github.com:acme/app.git   # copy a remote repo locally\ngit remote -v                            # list remotes and their URLs\ngit fetch origin                         # download new commits, change nothing\ngit pull                                 # fetch, then merge into the current branch\ngit push -u origin feature/login        # upload; -u links branch to its upstream\ngit push                                 # later pushes just work\n```\n\nThe key distinction: `fetch` only downloads — your files stay put, and you decide what to merge. `pull` is `fetch` plus `merge` (or `rebase`). Support engineers prefer to `fetch` first because it is safe and lets you inspect incoming work with `git log origin/main`.\n\nThe **fork / branch / pull request** workflow is how most teams collaborate. You rarely push to `main` directly. Instead you create a short-lived branch, push it, and open a **pull request** (PR). Reviewers comment, CI runs tests, and only then is it merged. A **fork** is a server-side copy under your own account, used when you lack write access to the original.\n\nGood collaborators fetch often, keep branches small, and write PR descriptions that explain the *what* and the *why*.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between git fetch and git pull?",
+          "options": [
+            "fetch downloads only; pull downloads and merges into your branch",
+            "fetch merges; pull only downloads",
+            "They are identical",
+            "fetch deletes local changes; pull keeps them"
+          ],
+          "answer": 0,
+          "hint": "One of them changes your working files, the other does not.",
+          "explain": "fetch is safe and read-only; pull is fetch followed by a merge (or rebase) into the current branch."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command to push your local branch feature/login to origin for the first time, linking it to its upstream",
+          "answers": [
+            "git push -u origin feature/login",
+            "git push --set-upstream origin feature/login"
+          ],
+          "hint": "push with the upstream flag -u, the remote name, then the branch.",
+          "explain": "The -u flag sets the upstream so future git push and git pull need no arguments."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the fork / branch / pull request workflow in the correct order",
+          "items": [
+            "Create a branch (or fork the repository)",
+            "Push the branch to your remote",
+            "Open a pull request describing the change",
+            "Review, run CI, and merge"
+          ],
+          "explain": "Work happens on a branch; only reviewed and tested code reaches main.",
+          "hint": "You never push straight to main."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does git clone do?",
+          "options": [
+            "Copies a remote repository, including its history, to your machine",
+            "Uploads your local commits to a server",
+            "Creates an empty repository locally",
+            "Renames the origin remote"
+          ],
+          "answer": 0,
+          "hint": "It is the first command you run on a project you have not worked on before.",
+          "explain": "git clone downloads the full repository and checks out the default branch, setting origin as the remote."
+        }
+      ]
+    },
+    {
+      "title": "Rewriting History Safely",
+      "body": "History is editable until you share it. **Never rewrite commits that others have already pulled** — their copies will diverge and cause pain. That single rule governs everything here.\n\n`git revert` is the safe undo: it creates a *new* commit that reverses an earlier one. It keeps history intact, so it is the right tool on a shared branch.\n\n```\ngit revert a1b2c3d            # new commit that undoes that one\ngit rebase main               # replay your branch's commits on top of main\ngit rebase -i HEAD~3          # edit the last three commits\ngit cherry-pick a1b2c3d       # copy one commit onto the current branch\ngit reset --soft HEAD~1       # undo the commit, keep changes staged\ngit reset --mixed HEAD~1      # undo the commit, keep changes unstaged (default)\ngit reset --hard HEAD~1       # undo the commit AND discard the changes\n```\n\nAn **interactive rebase** (`-i`) opens a list of actions: `pick`, `reword` (edit the message), `squash` (fold into the previous commit) and `drop`. It is how you turn five messy \"wip\" commits into one clean one before opening a PR.\n\nThe three `reset` modes differ only in what they do with your changes: `--soft` keeps them staged, `--mixed` keeps them in the working tree, and `--hard` destroys them. `--hard` is the dangerous one — check `git status` first and commit or stash anything you are unsure about.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "You pushed a commit to a shared branch and need to undo it. Which command is safest?",
+          "options": [
+            "git revert <commit>",
+            "git reset --hard HEAD~1",
+            "git rebase -i",
+            "Delete the branch and re-clone"
+          ],
+          "answer": 0,
+          "hint": "It adds a new commit instead of removing an old one.",
+          "explain": "revert creates a new commit that reverses the change, so everyone's history stays consistent."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which git reset mode discards your uncommitted changes completely?",
+          "options": [
+            "--hard",
+            "--soft",
+            "--mixed",
+            "--keep"
+          ],
+          "answer": 0,
+          "hint": "The strictest of the three; it wipes the working tree.",
+          "explain": "--hard resets the working tree and index, so uncommitted changes are lost. Use with care."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that copies the single commit a1b2c3d onto your current branch",
+          "answers": [
+            "git cherry-pick a1b2c3d"
+          ],
+          "hint": "It is named after picking a cherry off another branch.",
+          "explain": "git cherry-pick applies just that commit's changes onto the current branch."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of squashing the last three commits with an interactive rebase in order",
+          "items": [
+            "Run git rebase -i HEAD~3",
+            "Change the later picks to squash in the editor",
+            "Write the combined commit message",
+            "Save and close; Git rewrites the history"
+          ],
+          "explain": "Interactive rebase opens a list; marking commits squash folds them into the previous one.",
+          "hint": "Start the rebase, edit the list, then edit the message."
+        }
+      ]
+    },
+    {
+      "title": "Recovering from Mistakes",
+      "body": "Git rarely loses work. Even after a bad `reset --hard`, the old commits still exist in the **reflog**, a local log of where `HEAD` has been.\n\n```\ngit reflog                     # recent HEAD positions\ngit reset --hard HEAD@{1}      # jump back to where you were\ngit restore app.js             # discard working-tree changes to a file\ngit restore --staged app.js    # unstage a file, keep the edit\ngit commit --amend -m \"Better subject\"   # fix the last commit (message or files)\ngit stash                      # park uncommitted changes\ngit stash pop                  # bring them back\ngit tag v1.2.0                 # lightweight tag on the current commit\ngit tag -a v1.2.0 -m \"Release 1.2.0\"     # annotated tag\ngit push origin v1.2.0         # tags are not pushed automatically\n```\n\nTo undo a commit you already pushed, use `git revert` (Lesson 5): it is honest and safe. To undo a local commit you have not pushed, `git reset` is fine.\n\n`git stash` is a scratchpad for \"I need to switch branches but my work is half-done\": it saves the working tree and index, then clears them. `git stash pop` reapplies and removes the entry.\n\n**Tags** mark specific commits, usually releases. Annotated tags carry a message and date and are what `git describe` uses. Because tags are not pushed by default, always `git push --tags` or push them by name when you cut a release.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does the git reflog record?",
+          "options": [
+            "Where HEAD and branch tips have recently pointed locally",
+            "The list of remote pull requests",
+            "Only tags you have created",
+            "Files listed in .gitignore"
+          ],
+          "answer": 0,
+          "hint": "It is your safety net after a reset or a bad rebase.",
+          "explain": "The reflog is a local history of reference movements, so you can recover commits that seem lost."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that lists recent HEAD positions so you can recover a lost commit",
+          "answers": [
+            "git reflog"
+          ],
+          "hint": "Short for reference log.",
+          "explain": "git reflog shows recent HEAD movements; reset to an entry like HEAD@{1} to recover."
+        },
+        {
+          "type": "mcq",
+          "prompt": "You have half-finished work but need to switch branches urgently. What is the tidy option?",
+          "options": [
+            "git stash",
+            "git reset --hard",
+            "git push",
+            "git commit --amend"
+          ],
+          "answer": 0,
+          "hint": "It parks your changes so you can retrieve them later.",
+          "explain": "git stash saves the working tree and index away, letting you switch branches cleanly; git stash pop restores."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of using the stash in the correct order",
+          "items": [
+            "Make your edits on the current branch",
+            "Run git stash to park them",
+            "Switch to the other branch and do the urgent work",
+            "Run git stash pop to bring your edits back"
+          ],
+          "explain": "Stash, switch, work, then pop — a clean way to context-switch without committing half a change.",
+          "hint": "Park, switch, then restore."
+        }
+      ]
+    }
+  ]
+}

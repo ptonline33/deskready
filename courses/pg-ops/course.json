@@ -1,0 +1,322 @@
+{
+  "id": "pg-ops",
+  "title": "PostgreSQL Operations",
+  "subtitle": "Week 10: back up, replicate and secure a Postgres server",
+  "color": "#00bcd4",
+  "order": 17,
+  "description": "The day-two operations that keep a database safe: backups and point-in-time recovery, replication and read replicas, roles and least-privilege access, connection pooling with pgbouncer, and the maintenance routine every DBA owns.",
+  "lessons": [
+    {
+      "title": "Backup and Restore",
+      "body": "Backups fall into two families. A **logical backup** (`pg_dump`) reads the database through SQL and writes a consistent snapshot of the schema and data. It is portable across versions and architectures and you can restore a single table, but it is slow on very large databases and does not capture things outside the database such as roles. A **physical backup** copies the actual data files (with `pg_basebackup`), is fast and byte-for-byte, and underpins point-in-time recovery, but it is tied to the same PostgreSQL major version.\n\n`pg_dump` has output formats: plain SQL (`-Fp`), which you replay with `psql`, and **custom** (`-Fc`), a compressed archive you restore with `pg_restore`. Custom is nearly always the better choice because `pg_restore` can be selective and parallel:\n\n```bash\npg_dump -h db.internal -U postgres -Fc -f support.dump support\n```\n\nRestore into a fresh database and use `-j` for parallel jobs:\n\n```bash\ncreatedb -h db.internal -U postgres support_restore\npg_restore -h db.internal -U postgres -d support_restore -j 4 support.dump\n```\n\nA backup you have never restored is not a backup. After every restore, verify row counts on key tables, the presence of the newest records, and that grants and indexes came across. Automate that check so a silent failure in the backup job is caught before you need it.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which statement best distinguishes a logical backup from a physical backup?",
+          "options": [
+            "Logical backups read data through SQL and are portable; physical backups copy the data files and underpin point-in-time recovery",
+            "Logical backups are always faster than physical ones",
+            "Physical backups cannot be restored to another server",
+            "Logical backups include the roles and tablespaces that physical backups miss"
+          ],
+          "answer": 0,
+          "explain": "pg_dump is logical and portable; pg_basebackup is a physical file copy used for PITR and tied to the same major version.",
+          "hint": "One reads through SQL, the other copies files."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a `pg_dump` command that saves the `support` database to `support.dump` in custom (compressed) format.",
+          "patterns": [
+            {
+              "re": "pg_dump",
+              "m": "Use pg_dump."
+            },
+            {
+              "re": "-Fc|--format[= ]custom",
+              "m": "Choose custom format with -Fc."
+            },
+            {
+              "re": "support",
+              "m": "Name the support database."
+            }
+          ],
+          "solution": "pg_dump -h db.internal -U postgres -Fc -f support.dump support",
+          "explain": "Custom format is compressed and lets pg_restore run selectively and in parallel, unlike plain SQL.",
+          "hint": "Custom format is the -Fc flag."
+        },
+        {
+          "type": "mcq",
+          "prompt": "When using `pg_restore`, which flag names the target database to restore into?",
+          "options": [
+            "-d",
+            "-F",
+            "-f",
+            "-j"
+          ],
+          "answer": 0,
+          "explain": "-d names the destination database. -f selects an output file, -F sets format, and -j sets the number of parallel jobs.",
+          "hint": "It is the same letter psql uses to pick a database."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a `pg_restore` command that restores `support.dump` into database `support_restore` using 4 parallel jobs.",
+          "patterns": [
+            {
+              "re": "pg_restore",
+              "m": "Use pg_restore."
+            },
+            {
+              "re": "-d\\s+support_restore",
+              "m": "Target the support_restore database with -d."
+            },
+            {
+              "re": "-j\\s*4",
+              "m": "Use -j 4 for four parallel workers."
+            }
+          ],
+          "solution": "pg_restore -h db.internal -U postgres -d support_restore -j 4 support.dump",
+          "explain": "Parallel restore with -j speeds up large custom-format archives by loading tables concurrently.",
+          "hint": "Parallel jobs use the -j flag."
+        }
+      ]
+    },
+    {
+      "title": "Point-in-Time Recovery and WAL",
+      "body": "Between backups the database is never standing still. The **write-ahead log (WAL)** records every change before it is written to the main files, so a crash can be replayed forward. That same WAL makes **point-in-time recovery (PITR)** possible: restore a base backup, then replay archived WAL up to a chosen moment - say, ten seconds before the bad `DELETE`.\n\nTo enable it, turn on WAL archiving. Set `archive_mode = on` and an `archive_command` that copies each completed WAL segment somewhere safe, for example `archive_command = 'cp %p /backups/wal/%f'`. Then take a **base backup** with `pg_basebackup`, which records the WAL position it started from.\n\nTo recover, stop the server, restore the base backup files, create a `recovery.signal` file (PostgreSQL 12+), and set a target:\n\n| setting | stops replay at... |\n| --- | --- |\n| `recovery_target_time` | a wall-clock timestamp |\n| `recovery_target_xid` | a transaction id |\n| `recovery_target_lsn` | a WAL location |\n| `recovery_target_name` | a named restore point |\n\nStart the server; it replays WAL and stops at the target, then continues on a new timeline. Keep the archive on storage separate from the database, or losing the disk loses the backups too.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the write-ahead log (WAL) for?",
+          "options": [
+            "Recording every change before it reaches the data files, so a crash can be replayed and PITR is possible",
+            "Storing a second copy of the whole database",
+            "Caching query results for the planner",
+            "Compressing backups automatically"
+          ],
+          "answer": 0,
+          "explain": "WAL is the durability and recovery mechanism: redo recorded in the log can rebuild the data files after a crash and be replayed to a chosen point.",
+          "hint": "It is written ahead of the actual data change."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these steps of a point-in-time recovery in the order you would perform them.",
+          "items": [
+            "Enable WAL archiving with archive_mode and archive_command",
+            "Take a base backup with pg_basebackup",
+            "Restore the base backup files onto the server",
+            "Set recovery_target_time and create the recovery.signal file",
+            "Start the server so it replays WAL up to the target"
+          ],
+          "explain": "Archiving must be on before the base backup, the base backup is the starting point, then you restore it, set the target, and start to replay WAL to that moment.",
+          "hint": "You cannot recover to a point unless archiving was on and a base backup exists."
+        },
+        {
+          "type": "input",
+          "prompt": "Which recovery setting stops WAL replay at a specific wall-clock timestamp?",
+          "answers": [
+            "recovery_target_time",
+            "recovery target time",
+            "recovery_target_time="
+          ],
+          "explain": "recovery_target_time sets a timestamp target; replay stops once the database reaches that moment, the classic undo-the-bad-DELETE move.",
+          "hint": "It is recovery_target_ plus the word for time."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Where must the WAL archive live for a PITR strategy to be safe?",
+          "options": [
+            "On storage separate from the database server",
+            "On the same disk as the data directory for low latency",
+            "Only in the server's memory",
+            "Inside the base backup itself"
+          ],
+          "answer": 0,
+          "explain": "If the archive shares the disk with the database, losing that disk loses both. Off-server storage is what makes recovery possible.",
+          "hint": "Think about what happens when the database disk fails."
+        }
+      ]
+    },
+    {
+      "title": "Replication and Read Replicas",
+      "body": "Replication keeps a second server continuously in step, giving you a standby for failover and a replica to serve reads. **Streaming (physical) replication** ships the WAL byte stream and produces an exact, read-only copy of the whole cluster. A standby connects using `primary_conninfo` in `postgresql.conf` and stays in recovery until you promote it. **Logical replication** ships row-level changes for selected tables through publications and subscriptions; it works across major versions and lets the subscriber be writable, but it does not replicate DDL or sequences.\n\nTo promote a standby, run `pg_ctl promote -D /var/lib/postgresql/data` (or just `pg_ctl promote`). It stops replay, becomes read-write, and continues on a new timeline so it can never rejoin the old primary by accident.\n\nFor **read scaling**, point report queries at a streaming replica. Be aware of **replication lag**: a replica is eventually consistent, so a read straight after a write may not see that write. Applications that must read their own writes should send those queries to the primary.\n\n```sql\nSELECT client_addr, state, replay_lag FROM pg_stat_replication;\n```\n\nMonitor lag with the `pg_stat_replication` view on the primary. Always test failover by actually promoting a replica, not just by reading the configuration.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the main difference between streaming and logical replication?",
+          "options": [
+            "Streaming ships the WAL byte stream for the whole cluster; logical ships row changes for selected tables and allows a writable subscriber",
+            "Streaming only copies the schema, logical copies data",
+            "Logical replication requires the same major version",
+            "Streaming replication cannot be used for failover"
+          ],
+          "answer": 0,
+          "explain": "Physical streaming is a byte-for-byte WAL copy tied to the major version; logical replication is row-based, selective, and version-flexible.",
+          "hint": "One is WAL-level, the other is row-level."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What happens when you promote a standby?",
+          "options": [
+            "It stops replay, becomes read-write, and continues on a new timeline",
+            "It deletes its data and re-syncs from the primary",
+            "It becomes read-only permanently",
+            "It erases the WAL archive"
+          ],
+          "answer": 0,
+          "explain": "A promoted standby leaves recovery, accepts writes, and moves to a new timeline so it cannot accidentally follow the old primary again.",
+          "hint": "Promotion turns a follower into the leader."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the command to promote a standby whose data directory is `/var/lib/postgresql/data`.",
+          "patterns": [
+            {
+              "re": "pg_ctl",
+              "m": "Use the pg_ctl control utility."
+            },
+            {
+              "re": "promote",
+              "m": "The action is promote."
+            }
+          ],
+          "solution": "pg_ctl promote -D /var/lib/postgresql/data",
+          "explain": "pg_ctl promote tells the standby to leave recovery and become a primary. The -D flag points at its data directory.",
+          "hint": "pg_ctl has a promote subcommand."
+        },
+        {
+          "type": "mcq",
+          "prompt": "An application writes a row then immediately reads it from a read replica. What can go wrong?",
+          "options": [
+            "Replication lag means the replica may not have the write yet, so the read returns nothing",
+            "The replica rejects all reads during replay",
+            "The write is applied twice",
+            "The read blocks until the primary confirms it"
+          ],
+          "answer": 0,
+          "explain": "Replicas are eventually consistent. Read-your-own-writes must go to the primary, or the application must tolerate lag.",
+          "hint": "Replicas are only eventually consistent."
+        }
+      ]
+    },
+    {
+      "title": "Roles, Privileges and Security",
+      "body": "PostgreSQL roles own objects and hold privileges. A role with `LOGIN` is a user; one without is a group. Follow **least privilege**: give every application its own role and grant only the operations it needs, never `SUPERUSER`.\n\nPrivileges are granted with `GRANT` and removed with `REVOKE`. A role can only use an object it has been granted, and only inside a schema it can reach (`USAGE` on the schema):\n\n```sql\nGRANT USAGE ON SCHEMA reporting TO analyst;\nGRANT SELECT ON ALL TABLES IN SCHEMA reporting TO analyst;\nREVOKE INSERT, UPDATE, DELETE ON reporting.orders FROM analyst;\n```\n\n**Schemas** are namespaces inside a database; the `search_path` decides which one an unqualified name resolves to. Keep untrusted users out of `public` by revoking `CREATE` on it.\n\n**Row-level security (RLS)** filters rows per user. Enable it with `ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;`, then add a policy such as `CREATE POLICY own_rows ON tickets USING (agent_id = current_user_id());` so an agent sees only their rows even though the table grant is shared.\n\nFinally, `pg_hba.conf` decides *who may connect from where and how* - which host addresses, which databases, and which authentication method (`scram-sha-256` preferred). Grant the privilege, then restrict the door.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does the principle of least privilege mean here?",
+          "options": [
+            "Each role gets only the privileges its work requires, and no SUPERUSER unless essential",
+            "Every application shares one powerful role for simplicity",
+            "All roles can read every table by default",
+            "Privileges are granted to the public schema"
+          ],
+          "answer": 0,
+          "explain": "Least privilege limits the blast radius of a compromised or buggy application: it can touch only what it was explicitly granted.",
+          "hint": "Grant the minimum, not the maximum."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a `GRANT` giving the `analyst` role SELECT on the table `reporting.orders`.",
+          "patterns": [
+            {
+              "re": "grant\\s+select",
+              "m": "GRANT SELECT ..."
+            },
+            {
+              "re": "on\\s+reporting\\.orders",
+              "m": "Target the reporting.orders table."
+            },
+            {
+              "re": "to\\s+analyst",
+              "m": "Grant it TO analyst."
+            }
+          ],
+          "solution": "GRANT SELECT ON reporting.orders TO analyst;",
+          "explain": "This grants read-only access to one table. The analyst also needs USAGE on the reporting schema to reach it.",
+          "hint": "GRANT privilege ON object TO role."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `pg_hba.conf` control?",
+          "options": [
+            "Which hosts, databases and authentication methods are allowed to connect",
+            "Which columns a role may read",
+            "How much memory the server uses",
+            "The order of WAL replay during recovery"
+          ],
+          "answer": 0,
+          "explain": "pg_hba.conf is the host-based access list: for each combination of connection type, address, database and user, it names the authentication method.",
+          "hint": "Its name means host-based authentication."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these checks in the order a connection passes through them, from outside in.",
+          "items": [
+            "pg_hba.conf accepts the host, database and auth method",
+            "The role must have LOGIN and CONNECT on the database",
+            "The role must have USAGE on the schema",
+            "The role must hold the privilege on the table"
+          ],
+          "explain": "You are admitted at the door (pg_hba), then allowed into the database, then the schema, and finally the individual table - failure at any layer blocks you.",
+          "hint": "Start with the network door, end with the object itself."
+        }
+      ]
+    },
+    {
+      "title": "Connection Pooling and Maintenance Routine",
+      "body": "Every PostgreSQL connection is a forked process using a few megabytes of memory, so `max_connections` is a hard ceiling you cannot raise for free. Applications that open a connection per request quickly exhaust it. **pgbouncer** sits between clients and the server and multiplexes many client connections onto a small pool of real ones.\n\npgbouncer has pooling modes: **session** (a server connection is held for the whole client session), **transaction** (returned after each transaction - the best default for most apps), and **statement**. Transaction mode is efficient but forbids session-level state such as a session `SET` or an advisory lock held across statements, so know your application before choosing it.\n\nA DBA's routine keeps the server healthy. Watch:\n\n| check | view |\n| --- | --- |\n| active vs idle connections | `pg_stat_activity` |\n| table and index bloat | `pg_stat_user_tables` and `pgstattuple` |\n| blocking locks | `pg_locks` joined to `pg_stat_activity` |\n| replication lag | `pg_stat_replication` |\n| autovacuum progress | `pg_stat_progress_vacuum` |\n\nAn operations checklist: confirm last night's backup restored cleanly in a test; verify replication lag is near zero; check for long-running or blocked queries; confirm autovacuum is keeping up; and alert on connection counts approaching `max_connections` before users hit `too many clients` errors.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which pgbouncer pooling mode returns the server connection to the pool after every transaction?",
+          "options": [
+            "Transaction pooling",
+            "Session pooling",
+            "Statement pooling",
+            "Direct pooling"
+          ],
+          "answer": 0,
+          "explain": "Transaction pooling is the usual default: it gives high reuse while allowing multi-statement transactions, but session-level state cannot survive between transactions.",
+          "hint": "The pool is held for the duration of one transaction."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What limits how many direct client connections PostgreSQL will accept?",
+          "options": [
+            "max_connections",
+            "shared_buffers",
+            "work_mem",
+            "autovacuum_max_workers"
+          ],
+          "answer": 0,
+          "explain": "max_connections is the hard cap, and each slot costs memory. Raising it recklessly is why pooling is preferred over a huge connection count.",
+          "hint": "The setting name contains the word connections."
+        },
+        {
+          "type": "input",
+          "prompt": "Which system view lists current connections and what each backend is doing?",
+          "answers": [
+            "pg_stat_activity",
+            "pg_stat_activity;"
+          ],
+          "explain": "pg_stat_activity shows one row per backend with its state, current query, wait event and timings - the first place to look for idle-in-transaction or blocked sessions.",
+          "hint": "It is a pg_stat_ view whose name means activity."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this daily operations checklist in a sensible order.",
+          "items": [
+            "Confirm last night's backup restored cleanly in a test",
+            "Verify replication lag is near zero",
+            "Check for long-running or blocked queries",
+            "Confirm autovacuum is keeping up with bloat",
+            "Review connection counts against max_connections"
+          ],
+          "explain": "Recovery safety first, then replication health, then live query and lock health, then maintenance and capacity - a routine that catches the biggest risks first.",
+          "hint": "Start with whether you could recover, end with capacity headroom."
+        }
+      ]
+    }
+  ]
+}

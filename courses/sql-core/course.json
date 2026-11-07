@@ -1,0 +1,729 @@
+{
+  "id": "sql-core",
+  "title": "SQL Fundamentals",
+  "subtitle": "Weeks 5-7: query any relational database",
+  "color": "#7b5cff",
+  "order": 14,
+  "description": "Build SQL from the ground up on a realistic sample database: selecting and filtering rows, NULLs, sorting, aggregates, joining tables, subqueries, and an introduction to CTEs and window functions. Most lessons have runnable queries.",
+  "lessons": [
+    {
+      "title": "Tables, Rows and Columns",
+      "body": "SQL (Structured Query Language) is how you ask a relational database a question. Data is stored in **tables**: a named grid with **columns** down the side and one **row** per thing. This course uses one realistic sample database throughout so you can build a mental model and keep reusing it:\n\n| table | one row is... | columns |\n| --- | --- | --- |\n| `customers` | one customer account | id, name, plan, region |\n| `orders` | one customer order | id, customer_id, status, total, ordered_on |\n| `agents` | one support engineer | id, name, team, level |\n| `tickets` | one support ticket | id, subject, status, priority, customer_id, agent_id, resolved_minutes |\n\nEvery query that reads data has the same skeleton: `SELECT` names the columns you want, and `FROM` names the table that holds them.\n\n```sql\nSELECT * FROM agents;\n```\n\nThe `*` is shorthand for 'every column'. Read the query aloud: select all columns from the agents table. The result is a fresh grid; it never changes the stored data.\n\nWhen you only need a few columns, list them, and the order you write them is the order they come back:\n\n```sql\nSELECT name, region FROM customers;\n```\n\nOne column appears per name in your list, and one row per row of the table (until you start filtering). On its own, `SELECT` never removes duplicate rows or reorders them — those are separate jobs for later clauses. The **result shape** — its columns and row count — is the first thing to check whenever a query surprises you.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "Show every column of every agent.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "agents", "columns": ["id", "name", "team", "level"], "rows": [
+              [1, "Priya Shah", "Platform", "L1"],
+              [2, "Marco Rossi", "Billing", "L1"],
+              [3, "Chen Wei", "Platform", "L2"],
+              [4, "Ana Novak", "Identity", "L3"]
+            ] }
+          ],
+          "solution": "SELECT * FROM agents",
+          "expected": {
+            "columns": ["id", "name", "team", "level"],
+            "rows": [
+              [1, "Priya Shah", "Platform", "L1"],
+              [2, "Marco Rossi", "Billing", "L1"],
+              [3, "Chen Wei", "Platform", "L2"],
+              [4, "Ana Novak", "Identity", "L3"]
+            ]
+          },
+          "hint": "The star stands for all columns.",
+          "explain": "The star returns every column of every row - the whole agents table."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show each customer's name and region, name first.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT name, region FROM customers",
+          "expected": {
+            "columns": ["name", "region"],
+            "rows": [
+              ["Northwind Traders", "EMEA"],
+              ["Fabrikam", "AMER"],
+              ["Contoso", "APAC"],
+              ["Adventure Works", "AMER"],
+              ["Tailspin Toys", "EMEA"],
+              ["Litware", "APAC"]
+            ]
+          },
+          "hint": "List the two column names after SELECT, separated by a comma.",
+          "explain": "You get exactly the columns you asked for, in the order you wrote them."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In the `orders` table, what does one row represent?",
+          "options": [
+            "One customer order and its details",
+            "One column of the table",
+            "One customer's entire set of orders",
+            "The whole database"
+          ],
+          "answer": 0,
+          "explain": "One row per order. Each column (status, total, ordered_on...) is a property of that single order.",
+          "hint": "Think about the noun the table is named after."
+        },
+        {
+          "type": "input",
+          "prompt": "Which keyword names the table that a SELECT reads from?",
+          "answers": ["from"],
+          "hint": "It is the second word of every read query in this course.",
+          "explain": "SELECT names the columns; FROM names the table that holds them."
+        }
+      ]
+    },
+    {
+      "title": "Filtering with WHERE",
+      "body": "`SELECT` hands back every row. Real questions have conditions, and those go in `WHERE`:\n\n```sql\nSELECT subject FROM tickets WHERE status = 'Open';\n```\n\nThe quoting rule trips up beginners most: **text values need single quotes, numbers are written bare**. `'Open'`, `'P1'` and `'EMEA'` are text. `WHERE id = 3` and `WHERE total > 1000` use numbers with no quotes. Drop the quotes and the database looks for a column of that name and fails.\n\nComparisons behave as you expect — `=`, `!=`, `<`, `>`, `<=`, `>=` — and you can compare a column to a literal or to another column. Combine conditions with `AND` (both true) and `OR` (either true), and negate any condition with `NOT`:\n\n```sql\nSELECT subject FROM tickets WHERE status = 'Open' AND priority = 'P1';\nSELECT id FROM orders WHERE status = 'Paid' OR status = 'Pending';\nSELECT subject FROM tickets WHERE NOT status = 'Resolved';\n```\n\nOne trap to remember: `AND` binds tighter than `OR`. In `status = 'Paid' OR status = 'Pending' AND total > 1000`, the second condition is grouped first, so every Paid order survives no matter its total. Use parentheses to say exactly what you mean:\n\n```sql\nSELECT id FROM orders WHERE (status = 'Paid' OR status = 'Pending') AND total > 1000;\n```",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "List the subject and priority of every P1 ticket.",
+          "starter": "SELECT subject, priority FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, priority FROM tickets WHERE priority = 'P1'",
+          "expected": {
+            "columns": ["subject", "priority"],
+            "rows": [
+              ["Login fails with 500", "P1"],
+              ["SSO redirect loop", "P1"],
+              ["Webhook retries failing", "P1"]
+            ]
+          },
+          "hint": "P1 is text, so wrap it in single quotes.",
+          "explain": "Three tickets carry P1: ids 1, 6 and 9."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject and status of Open tickets that are also P1.",
+          "starter": "SELECT subject, status FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, status FROM tickets WHERE status = 'Open' AND priority = 'P1'",
+          "expected": {
+            "columns": ["subject", "status"],
+            "rows": [
+              ["Login fails with 500", "Open"],
+              ["Webhook retries failing", "Open"]
+            ]
+          },
+          "hint": "Join the two conditions with AND.",
+          "explain": "AND keeps only rows where both conditions hold: tickets 1 and 9."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the id and total of every order worth more than 1000.",
+          "starter": "SELECT id, total FROM orders WHERE ",
+          "db": [
+            { "name": "orders", "columns": ["id", "customer_id", "status", "total", "ordered_on"], "rows": [
+              [1, 1, "Paid", 1200, "2024-01-15"],
+              [2, 2, "Paid", 480, "2024-01-20"],
+              [3, 1, "Pending", 950, "2024-02-03"],
+              [4, 3, "Cancelled", 120, "2024-02-10"],
+              [5, 4, "Paid", 2100, "2024-02-18"],
+              [6, 5, "Paid", 300, "2024-03-01"],
+              [7, 2, "Refunded", 480, "2024-03-05"],
+              [8, 6, "Pending", 75, "2024-03-12"],
+              [9, 4, "Paid", 640, "2024-03-20"],
+              [10, 1, "Paid", 1500, "2024-04-02"]
+            ] }
+          ],
+          "solution": "SELECT id, total FROM orders WHERE total > 1000",
+          "expected": {
+            "columns": ["id", "total"],
+            "rows": [
+              [1, 1200],
+              [5, 2100],
+              [10, 1500]
+            ]
+          },
+          "hint": "1000 is a number, so no quotes are needed.",
+          "explain": "Orders 1, 5 and 10 exceed 1000; the rest are 950 or below."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the id of every order that is Paid or Pending and worth more than 1000.",
+          "starter": "SELECT id FROM orders WHERE ",
+          "db": [
+            { "name": "orders", "columns": ["id", "customer_id", "status", "total", "ordered_on"], "rows": [
+              [1, 1, "Paid", 1200, "2024-01-15"],
+              [2, 2, "Paid", 480, "2024-01-20"],
+              [3, 1, "Pending", 950, "2024-02-03"],
+              [4, 3, "Cancelled", 120, "2024-02-10"],
+              [5, 4, "Paid", 2100, "2024-02-18"],
+              [6, 5, "Paid", 300, "2024-03-01"],
+              [7, 2, "Refunded", 480, "2024-03-05"],
+              [8, 6, "Pending", 75, "2024-03-12"],
+              [9, 4, "Paid", 640, "2024-03-20"],
+              [10, 1, "Paid", 1500, "2024-04-02"]
+            ] }
+          ],
+          "solution": "SELECT id FROM orders WHERE (status = 'Paid' OR status = 'Pending') AND total > 1000",
+          "expected": {
+            "columns": ["id"],
+            "rows": [
+              [1],
+              [5],
+              [10]
+            ]
+          },
+          "hint": "Wrap the two statuses in parentheses so AND applies to the whole group.",
+          "explain": "Parentheses make OR bind first: only Paid/Pending orders above 1000 survive - 1, 5 and 10. Without them, every Paid order would pass."
+        }
+      ]
+    },
+    {
+      "title": "Sorting and Limiting",
+      "body": "Rows come back in no guaranteed order. If order matters, ask for it with `ORDER BY`, and cut the list down with `LIMIT`:\n\n```sql\nSELECT id, subject FROM tickets ORDER BY id DESC LIMIT 3;\n```\n\n`ORDER BY` names the column to sort on. `ASC` is ascending (smallest first) and is the default; `DESC` is descending (largest first). Ticket ids grow over time, so `ORDER BY id DESC` puts the newest tickets first — a queue an agent can work straight down.\n\n`LIMIT` keeps only the first N rows of whatever has been produced. Sorting happens **before** trimming, so the two clauses together answer everyday questions: the three newest tickets, the slowest resolutions, the largest orders.\n\nThe clauses have a fixed order, and writing them out of sequence is an error:\n\n```\nFROM  ->  WHERE  ->  ORDER BY  ->  LIMIT\n```\n\nSo a filtered, sorted, capped query reads like this:\n\n```sql\nSELECT subject, resolved_minutes FROM tickets WHERE status = 'Resolved' ORDER BY resolved_minutes DESC LIMIT 1;\n```\n\nThat returns the single slowest resolution. Swap `WHERE` and `ORDER BY` and the database refuses the query rather than guessing what you meant. Remember too that `LIMIT` without `ORDER BY` trims an arbitrary set of rows, so pair them when the 'first N' really should mean something.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "Show the three newest tickets: their id and subject, newest first.",
+          "starter": "SELECT id, subject FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT id, subject FROM tickets ORDER BY id DESC LIMIT 3",
+          "expected": {
+            "columns": ["id", "subject"],
+            "rows": [
+              [10, "Upgrade to Enterprise quote"],
+              [9, "Webhook retries failing"],
+              [8, "Password reset email missing"]
+            ]
+          },
+          "ordered": true,
+          "hint": "Sort on id descending, then trim with LIMIT 3.",
+          "explain": "Ids grow over time, so the highest ids are the newest tickets."
+        },
+        {
+          "type": "sql",
+          "prompt": "Among Resolved tickets, show the subject and resolved_minutes of all of them, slowest first.",
+          "starter": "SELECT subject, resolved_minutes FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, resolved_minutes FROM tickets WHERE status = 'Resolved' ORDER BY resolved_minutes DESC",
+          "expected": {
+            "columns": ["subject", "resolved_minutes"],
+            "rows": [
+              ["Dashboard slow to load", 320],
+              ["Password reset email missing", 60],
+              ["SSO redirect loop", 45]
+            ]
+          },
+          "ordered": true,
+          "hint": "Filter to Resolved so every row has a number, then sort the minutes descending.",
+          "explain": "Descending puts the biggest number - the slowest fix - on top."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show the id and total of the two largest orders, biggest first.",
+          "starter": "SELECT id, total FROM orders ",
+          "db": [
+            { "name": "orders", "columns": ["id", "customer_id", "status", "total", "ordered_on"], "rows": [
+              [1, 1, "Paid", 1200, "2024-01-15"],
+              [2, 2, "Paid", 480, "2024-01-20"],
+              [3, 1, "Pending", 950, "2024-02-03"],
+              [4, 3, "Cancelled", 120, "2024-02-10"],
+              [5, 4, "Paid", 2100, "2024-02-18"],
+              [6, 5, "Paid", 300, "2024-03-01"],
+              [7, 2, "Refunded", 480, "2024-03-05"],
+              [8, 6, "Pending", 75, "2024-03-12"],
+              [9, 4, "Paid", 640, "2024-03-20"],
+              [10, 1, "Paid", 1500, "2024-04-02"]
+            ] }
+          ],
+          "solution": "SELECT id, total FROM orders ORDER BY total DESC LIMIT 2",
+          "expected": {
+            "columns": ["id", "total"],
+            "rows": [
+              [5, 2100],
+              [10, 1500]
+            ]
+          },
+          "ordered": true,
+          "hint": "ORDER BY total DESC, then keep only the first two rows.",
+          "explain": "The two biggest totals are 2100 (order 5) and 1500 (order 10)."
+        },
+        {
+          "type": "order",
+          "prompt": "A query runs in a fixed order. Put these steps in the sequence the database follows.",
+          "items": [
+            "Read the table named in FROM",
+            "Keep only matching rows with WHERE",
+            "Sort the surviving rows with ORDER BY",
+            "Trim the list to the first N rows with LIMIT"
+          ],
+          "explain": "FROM, then WHERE, then ORDER BY, then LIMIT - which is why you cannot write LIMIT before ORDER BY.",
+          "hint": "Start with where the data comes from, finish with how much of it you keep."
+        }
+      ]
+    },
+    {
+      "title": "NULLs and Three-Valued Logic",
+      "body": "Some cells hold no value at all. That is **NULL**, and it means `unknown` or `not recorded` — not zero, and not an empty string. In our data, unresolved tickets have NULL in `resolved_minutes`: nobody has measured them yet.\n\nNULL breaks the usual rules because SQL uses **three-valued logic**: a comparison is `TRUE`, `FALSE`, or `UNKNOWN`. Any comparison with NULL is `UNKNOWN`, so `resolved_minutes = NULL` is never true, and `resolved_minutes != NULL` is never true either. A `WHERE` keeps a row only when its condition is `TRUE`, so both forms return nothing at all.\n\n```sql\nSELECT subject FROM tickets WHERE resolved_minutes = NULL;  -- always no rows\n```\n\nTo test for NULL, use `IS NULL` and `IS NOT NULL`:\n\n```sql\nSELECT subject FROM tickets WHERE resolved_minutes IS NULL;\n```\n\nTo substitute a fallback when a cell is NULL, use `COALESCE`, which returns its first non-NULL argument:\n\n```sql\nSELECT COALESCE(resolved_minutes, 0) FROM tickets;\n```\n\nThe distinction also shows up in aggregates. `COUNT(*)` counts rows; `COUNT(column)` counts only rows where that column is **not** NULL. On `tickets`, `COUNT(*)` is 10 while `COUNT(resolved_minutes)` is 5 — only five tickets have a recorded resolution time.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `SELECT * FROM tickets WHERE resolved_minutes = NULL;` return?",
+          "options": [
+            "No rows, because a comparison with NULL is never true",
+            "All the tickets whose resolved_minutes is empty",
+            "Every ticket, because NULL matches everything",
+            "An error, because = cannot be used with a number"
+          ],
+          "answer": 0,
+          "explain": "Comparing anything to NULL yields UNKNOWN, not TRUE, so WHERE keeps no rows. You would use IS NULL instead.",
+          "hint": "In SQL, NULL is unknown - it is not equal even to another NULL."
+        },
+        {
+          "type": "input",
+          "prompt": "Which operator tests whether a column is NULL? (two words, for example 'IS ...')",
+          "answers": ["is null", "is null;", "IS NULL"],
+          "hint": "You cannot use = ; there is a dedicated two-word test.",
+          "explain": "`col IS NULL` is true only when the cell is empty; `col IS NOT NULL` is the opposite."
+        },
+        {
+          "type": "sql",
+          "prompt": "How many tickets are there in total? Show just the count of rows.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT COUNT(*) FROM tickets",
+          "expected": { "columns": ["COUNT(*)"], "rows": [[10]] },
+          "hint": "COUNT with a star inside the parentheses counts rows, NULLs and all.",
+          "explain": "COUNT(*) counts every row, so it returns 10."
+        },
+        {
+          "type": "sql",
+          "prompt": "How many tickets actually have a resolution time recorded? Show just that count.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT COUNT(resolved_minutes) FROM tickets",
+          "expected": { "columns": ["COUNT(resolved_minutes)"], "rows": [[5]] },
+          "hint": "COUNT(column) counts only non-NULL values.",
+          "explain": "Ten tickets exist, but only five hold a resolved_minutes value, so COUNT(resolved_minutes) is 5 - the same gap NULLs create."
+        }
+      ]
+    },
+    {
+      "title": "Aggregates",
+      "body": "Aggregate functions collapse many rows into a single result row. There are five here:\n\n| function | what it returns |\n| --- | --- |\n| `COUNT(*)` | number of rows |\n| `COUNT(col)` | rows where col is not NULL |\n| `SUM(col)` | total of a numeric column |\n| `AVG(col)` | mean of a numeric column |\n| `MIN(col)` / `MAX(col)` | smallest / largest value |\n\n```sql\nSELECT COUNT(*) FROM tickets;\nSELECT SUM(total) FROM orders;\nSELECT AVG(resolved_minutes) FROM tickets;\nSELECT MIN(total), MAX(total) FROM orders;\n```\n\nEvery aggregate except `COUNT(*)` **ignores NULLs**. That is why `AVG(resolved_minutes)` divides by 5 (the recorded values), not by 10. The result of an aggregate query is always **one row**, and in this engine the column is named after the function exactly as written: `COUNT(*)`, `AVG(resolved_minutes)`, `MIN(total)`.\n\nAggregates respect `WHERE`, because they only see the rows that survive the filter:\n\n```sql\nSELECT COUNT(*) FROM tickets WHERE status = 'Open';\n```\n\nIn full SQL you would summarise each group with `GROUP BY` — for example, one count per `status` — and then filter those groups with `HAVING`. This in-browser engine does not support `GROUP BY`, so every aggregate here describes the whole filtered table at once.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "How many tickets are still Open? Show just the count.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT COUNT(*) FROM tickets WHERE status = 'Open'",
+          "expected": { "columns": ["COUNT(*)"], "rows": [[3]] },
+          "hint": "COUNT(*) counts the rows that survive the WHERE filter.",
+          "explain": "Tickets 1, 4 and 9 are Open, so the count is 3."
+        },
+        {
+          "type": "sql",
+          "prompt": "What is the total value of all orders combined? Show just the sum.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "orders", "columns": ["id", "customer_id", "status", "total", "ordered_on"], "rows": [
+              [1, 1, "Paid", 1200, "2024-01-15"],
+              [2, 2, "Paid", 480, "2024-01-20"],
+              [3, 1, "Pending", 950, "2024-02-03"],
+              [4, 3, "Cancelled", 120, "2024-02-10"],
+              [5, 4, "Paid", 2100, "2024-02-18"],
+              [6, 5, "Paid", 300, "2024-03-01"],
+              [7, 2, "Refunded", 480, "2024-03-05"],
+              [8, 6, "Pending", 75, "2024-03-12"],
+              [9, 4, "Paid", 640, "2024-03-20"],
+              [10, 1, "Paid", 1500, "2024-04-02"]
+            ] }
+          ],
+          "solution": "SELECT SUM(total) FROM orders",
+          "expected": { "columns": ["SUM(total)"], "rows": [[7845]] },
+          "hint": "SUM adds the whole column together.",
+          "explain": "1200+480+950+120+2100+300+480+75+640+1500 = 7845."
+        },
+        {
+          "type": "sql",
+          "prompt": "What is the average resolution time, in minutes, across the tickets that have one? Show just the average.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT AVG(resolved_minutes) FROM tickets",
+          "expected": { "columns": ["AVG(resolved_minutes)"], "rows": [[140]] },
+          "hint": "AVG ignores the NULL cells, so it divides by the number of recorded values.",
+          "explain": "95+320+45+180+60 = 700 across 5 tickets, so the average is 140."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which clause groups rows so that an aggregate is computed per group - for example, one ticket count for each status?",
+          "options": [
+            "GROUP BY",
+            "ORDER BY",
+            "WHERE",
+            "LIMIT"
+          ],
+          "answer": 0,
+          "explain": "GROUP BY splits rows into groups before aggregating, and HAVING then filters those groups. This engine does not support GROUP BY, so here aggregates cover the whole filtered table.",
+          "hint": "Its name says exactly what it does to rows."
+        }
+      ]
+    },
+    {
+      "title": "Joining Tables",
+      "body": "Data is split across tables so nothing is stored twice. A ticket never repeats the customer's name; it stores `customer_id`, a number that points at a row in `customers`. That pointer is a **foreign key**, and a `JOIN` follows it:\n\n```sql\nSELECT tickets.subject, customers.name\nFROM tickets\nJOIN customers ON tickets.customer_id = customers.id;\n```\n\nRead it as: for each ticket row, find the customer row whose `id` equals the ticket's `customer_id`, then stitch the two into one output row. The `ON` clause is the matching rule; get it wrong and you get nonsense or no rows at all.\n\nTickets also carry `agent_id`, pointing at `agents`, so the same pattern answers who is handling what:\n\n```sql\nSELECT tickets.subject, agents.name\nFROM tickets\nJOIN agents ON tickets.agent_id = agents.id;\n```\n\nTwo details matter. First, **qualify ambiguous columns**: both tables have an `id`, so write `tickets.id` or `customers.id` to say which you mean. Second, the result uses **bare column names** — `subject`, `name` — even though you typed `customers.name`. You can filter a joined table as freely as a base one:\n\n```sql\nSELECT tickets.subject FROM tickets JOIN customers ON tickets.customer_id = customers.id WHERE customers.plan = 'Enterprise';\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "An order row has `customer_id = 5`. What does the 5 refer to?",
+          "options": [
+            "The row in the customers table whose id is 5",
+            "The customer's fifth order",
+            "The agent who handled the order",
+            "A count of five customers"
+          ],
+          "answer": 0,
+          "explain": "customer_id is a foreign key: it points at customers.id, so it matches exactly one customer row.",
+          "hint": "The number points across to another table."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show each ticket's subject next to the name of the customer who raised it.",
+          "starter": "SELECT tickets.subject, customers.name FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] },
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT tickets.subject, customers.name FROM tickets JOIN customers ON tickets.customer_id = customers.id",
+          "expected": {
+            "columns": ["subject", "name"],
+            "rows": [
+              ["Login fails with 500", "Northwind Traders"],
+              ["Export CSV is empty", "Fabrikam"],
+              ["Add user to workspace", "Contoso"],
+              ["Billing shows wrong plan", "Northwind Traders"],
+              ["Dashboard slow to load", "Adventure Works"],
+              ["SSO redirect loop", "Tailspin Toys"],
+              ["API rate limit hit", "Fabrikam"],
+              ["Password reset email missing", "Litware"],
+              ["Webhook retries failing", "Tailspin Toys"],
+              ["Upgrade to Enterprise quote", "Adventure Works"]
+            ]
+          },
+          "hint": "JOIN customers ON tickets.customer_id = customers.id",
+          "explain": "Ten tickets, each stitched to the customer that raised it."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject of every ticket raised by an Enterprise-plan customer.",
+          "starter": "SELECT tickets.subject FROM tickets JOIN customers ON tickets.customer_id = customers.id ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] },
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT tickets.subject FROM tickets JOIN customers ON tickets.customer_id = customers.id WHERE customers.plan = 'Enterprise'",
+          "expected": {
+            "columns": ["subject"],
+            "rows": [
+              ["Login fails with 500"],
+              ["Billing shows wrong plan"],
+              ["SSO redirect loop"],
+              ["Webhook retries failing"]
+            ]
+          },
+          "hint": "After the join, add WHERE customers.plan = 'Enterprise'.",
+          "explain": "Northwind Traders and Tailspin Toys are the Enterprise customers - four tickets between them."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show the id of each EMEA customer's orders next to the customer's name.",
+          "starter": "SELECT orders.id, customers.name FROM orders JOIN customers ON orders.customer_id = customers.id ",
+          "db": [
+            { "name": "orders", "columns": ["id", "customer_id", "status", "total", "ordered_on"], "rows": [
+              [1, 1, "Paid", 1200, "2024-01-15"],
+              [2, 2, "Paid", 480, "2024-01-20"],
+              [3, 1, "Pending", 950, "2024-02-03"],
+              [4, 3, "Cancelled", 120, "2024-02-10"],
+              [5, 4, "Paid", 2100, "2024-02-18"],
+              [6, 5, "Paid", 300, "2024-03-01"],
+              [7, 2, "Refunded", 480, "2024-03-05"],
+              [8, 6, "Pending", 75, "2024-03-12"],
+              [9, 4, "Paid", 640, "2024-03-20"],
+              [10, 1, "Paid", 1500, "2024-04-02"]
+            ] },
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT orders.id, customers.name FROM orders JOIN customers ON orders.customer_id = customers.id WHERE customers.region = 'EMEA'",
+          "expected": {
+            "columns": ["id", "name"],
+            "rows": [
+              [1, "Northwind Traders"],
+              [3, "Northwind Traders"],
+              [6, "Tailspin Toys"],
+              [10, "Northwind Traders"]
+            ]
+          },
+          "hint": "Join on the foreign key, then filter WHERE customers.region = 'EMEA'.",
+          "explain": "The EMEA customers are Northwind Traders (orders 1, 3, 10) and Tailspin Toys (order 6)."
+        }
+      ]
+    },
+    {
+      "title": "Subqueries, IN and EXISTS",
+      "body": "A **subquery** is a `SELECT` nested inside another query. It runs first, produces a value or a list, and feeds the outer query — usually through the `WHERE` clause.\n\nThe simplest use is with `IN`: the inner query builds a list of values, and `IN` tests membership:\n\n```sql\nSELECT name FROM customers\nWHERE id IN (SELECT customer_id FROM tickets WHERE status = 'Open');\n```\n\nThe inner query returns the customer ids that have an Open ticket; the outer query keeps only those customers. `NOT IN` is the opposite, with one NULL warning: if the inner list contains a NULL, `NOT IN` can quietly match nothing, because comparing with NULL yields `UNKNOWN`.\n\n`EXISTS` tests whether the subquery returns **any** row, rather than which values it holds:\n\n```sql\nSELECT name FROM customers\nWHERE EXISTS (SELECT 1 FROM tickets WHERE tickets.customer_id = customers.id AND status = 'Open');\n```\n\nThe key difference: `IN` compares against a list and must build the whole list, while `EXISTS` can stop at the first matching row, so it is often faster on large tables. `EXISTS` also lets the inner query refer to the outer table (`customers.id`), which `IN` cannot do. Both answer the same everyday question — which customers have an Open ticket — and both are the bread and butter of support analytics.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is a subquery?",
+          "options": [
+            "A SELECT nested inside another query, whose result feeds the outer query",
+            "A copy of a table stored in memory",
+            "A query that runs on a second database",
+            "Another name for a JOIN"
+          ],
+          "answer": 0,
+          "explain": "A subquery is a full SELECT used as an input to an outer query, most often inside WHERE.",
+          "hint": "The name tells you it sits inside something else."
+        },
+        {
+          "type": "input",
+          "prompt": "Which keyword tests whether a value appears in a list produced by a subquery?",
+          "answers": ["in"],
+          "hint": "Two letters; it is the opposite of NOT plus itself.",
+          "explain": "`WHERE x IN (SELECT ...)` keeps rows whose value matches any value the subquery returned."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which statement best describes EXISTS compared with IN?",
+          "options": [
+            "EXISTS stops as soon as it finds one matching row, and can refer to the outer table",
+            "EXISTS always returns the list of matching values",
+            "EXISTS only works on numbers, IN only on text",
+            "They are identical in every respect"
+          ],
+          "answer": 0,
+          "explain": "EXISTS is a yes/no test, so it can short-circuit at the first match and can be correlated with the outer query.",
+          "hint": "One asks 'which values', the other asks 'is there any row at all'."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps in order for finding every customer who has at least one Open ticket, using IN.",
+          "items": [
+            "Run the inner query: SELECT customer_id FROM tickets WHERE status = 'Open'",
+            "The inner query produces a list of customer ids",
+            "The outer query scans the customers table",
+            "WHERE customers.id IN (...) keeps customers whose id is in that list"
+          ],
+          "explain": "The inner query runs first to build the id list; the outer query then keeps only customers whose id appears in it.",
+          "hint": "The list has to exist before the outer filter can test membership."
+        }
+      ]
+    },
+    {
+      "title": "CTEs and Window Functions",
+      "body": "Two features make complex SQL readable and powerful. A **common table expression** (CTE) names a query with `WITH` so you can reuse it and read the logic top to bottom:\n\n```sql\nWITH open_tickets AS (\n  SELECT id, customer_id FROM tickets WHERE status = 'Open'\n)\nSELECT customers.name, open_tickets.id\nFROM open_tickets\nJOIN customers ON customers.id = open_tickets.customer_id;\n```\n\nThe `WITH` block runs first and behaves like a temporary named table for the rest of the query. Chains of CTEs replace deeply nested subqueries and are far easier to debug.\n\n**Window functions** compute a value across a set of rows *without* collapsing them — unlike aggregates, every row survives. They use an `OVER (...)` clause to define the window:\n\n| function | what it does |\n| --- | --- |\n| `ROW_NUMBER()` | 1, 2, 3 ... unique per row |\n| `RANK()` | same number for ties, then skips |\n| `LAG(col)` | the previous row's value |\n\n```sql\nSELECT subject, ROW_NUMBER() OVER (ORDER BY resolved_minutes DESC) AS place\nFROM tickets;\n```\n\n`ROW_NUMBER` numbers every row; `RANK` gives tied rows the same number and leaves gaps; `LAG` looks back one row, handy for how much a total changed since the last order. A CTE can even be **recursive** — it references itself — which is how you walk a reporting hierarchy, such as tickets escalated through managers. These run in a full database; this in-browser engine covers the single-table and join queries you have already practised.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does a `WITH ... AS (...)` block do?",
+          "options": [
+            "Names a query so later parts can use it like a temporary table",
+            "Permanently creates a new table in the database",
+            "Deletes rows that match a condition",
+            "Sorts the final result"
+          ],
+          "answer": 0,
+          "explain": "A CTE is a named, temporary result used by the main query. It makes complex logic readable and reusable.",
+          "hint": "It is a nickname for a query, not a new stored table."
+        },
+        {
+          "type": "input",
+          "prompt": "Which keyword begins a common table expression?",
+          "answers": ["with"],
+          "hint": "Four letters; think 'WITH something AS (...)'.",
+          "explain": "A CTE starts with `WITH name AS (SELECT ...)`, then the main query refers to that name."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which window function gives tied rows the same number and then leaves a gap in the sequence?",
+          "options": [
+            "RANK()",
+            "ROW_NUMBER()",
+            "LAG()",
+            "COUNT()"
+          ],
+          "answer": 0,
+          "explain": "RANK shares a number between ties and skips the next values; ROW_NUMBER is always unique; LAG looks one row back.",
+          "hint": "Two rows with the same value should end up with the same rank."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps in order for how a CTE query is evaluated.",
+          "items": [
+            "The WITH clause defines the CTE and runs its query",
+            "The CTE's result is held as a temporary named table",
+            "The main SELECT reads from the CTE, joining it to real tables if needed",
+            "The final result is returned to you"
+          ],
+          "explain": "The CTE is computed first and treated as a named result; the main query then reads it like a table.",
+          "hint": "You cannot read the name until the WITH block has produced it."
+        }
+      ]
+    }
+  ]
+}

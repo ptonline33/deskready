@@ -1,0 +1,20 @@
+{
+  "plans": [
+    {
+      "id": "study-schedule",
+      "title": "26-Week Study Schedule",
+      "subtitle": "Week-by-week daily plan",
+      "description": "The realistic stack broken into 26 weeks: daily drills, weekend deliverables, and a self-test checkpoint each week.",
+      "color": "#3df2c0",
+      "path": "plans/study-schedule.md"
+    },
+    {
+      "id": "learning-guide",
+      "title": "The Realistic Stack",
+      "subtitle": "Detailed learning guide",
+      "description": "Layer-by-layer guide covering Linux, SQL/Postgres, Python, AWS, dbt, and Docker/K8s with drills, milestones, and interview questions.",
+      "color": "#4f8cff",
+      "path": "plans/learning-guide.md"
+    }
+  ]
+}

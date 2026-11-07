@@ -1,0 +1,242 @@
+{
+  "id": "fundamentals",
+  "title": "Application Support Fundamentals",
+  "subtitle": "What the job actually is",
+  "color": "#ff8a3d",
+  "order": 1,
+  "description": "Learn the role, the teams, the environments, and the tools behind a software company's support desk. The vocabulary and mental map you need before your first interview or shift.",
+  "lessons": [
+    {
+      "title": "What Application Support Is",
+      "body": "Application support is the job of keeping a company's software working for the people who pay for it. When a customer cannot log in, a report comes out wrong, or a page throws an error, application support investigates, fixes what they can, and routes what they cannot to the right team.\n\nIt helps to separate three jobs that sound similar. A **help desk** handles general IT: laptops, Wi-Fi, printer jams, account lockouts on internal systems. **Development** writes and ships new features. **Application support** sits in between: it understands the product deeply enough to diagnose why the product itself is misbehaving for a customer, without necessarily writing code.\n\nSaaS companies — **Software as a Service**, software you subscribe to and use over the internet rather than install — lean heavily on application support, because one bug can hit many paying customers at once. Every request the team handles is tracked as a **ticket**: a record of the problem, its status, who owns it, and what was done about it. Tickets are the unit of work, and everything in this course orbits them.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which of these best describes application support at a SaaS company?",
+          "options": [
+            "Diagnosing and resolving problems with the product itself for the customers using it",
+            "Repairing staff laptops, printers, and office Wi-Fi",
+            "Writing new product features from scratch",
+            "Selling subscriptions to new prospects"
+          ],
+          "answer": 0,
+          "explain": "Application support owns the health of the product for customers: diagnose, resolve, escalate."
+        },
+        {
+          "type": "input",
+          "prompt": "SaaS stands for Software as a Service. Write the full expansion.",
+          "answers": ["software as a service"],
+          "hint": "Three words: the thing you use, a connector, a business model.",
+          "explain": "Software as a Service: software delivered over the internet on a subscription, not installed on your machine."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is a ticket in a support context?",
+          "options": [
+            "A tracked record of a customer request or problem, with its status and owner",
+            "A one-time password sent by SMS",
+            "A software licence key",
+            "A calendar invite for a team meeting"
+          ],
+          "answer": 0,
+          "explain": "A ticket is the record of work: the issue, its priority, who owns it, and what was done."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the life of a support ticket in order, from first report to done",
+          "items": [
+            "The customer reports a problem",
+            "The ticket is triaged and assigned to the right person",
+            "Support investigates and works the issue",
+            "The customer confirms the problem is resolved",
+            "The ticket is closed with notes on what happened"
+          ],
+          "explain": "Report, triage and assign, investigate, verify with the customer, close with notes."
+        }
+      ]
+    },
+    {
+      "title": "Tiers, Teams and Queues",
+      "body": "Support teams are organized in **tiers**. **L1** (level 1, the first line) answers quickly, resolves the common issues using documented fixes, and escalates anything deeper. **L2** has deeper product and system knowledge: they read logs, check configurations, reproduce trickier bugs, and hand confirmed defects to engineering. **L3** is usually the engineering team that owns the code itself.\n\n**Triage** is the act of reading a new ticket and deciding what it is, how urgent it is, and where it goes. Get triage wrong and urgent issues rot in the wrong queue.\n\nTickets arrive through **channels**: a support portal, email, live chat, and phone. Each company weighs them differently, but portals keep every message attached to the ticket, which is why many SaaS companies push customers toward them. Work is grouped into **queues** — groups of tickets owned by a team — and every open ticket needs exactly one clear owner at a time. 'Everyone is looking at it' usually means no one is.\n\nFinally, know your audience: **external users** are the paying customers, while **internal users** are the company's own staff using internal tools. A glitch for internal users is a bad day; a glitch for external users is an incident.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does L2 support usually do?",
+          "options": [
+            "Investigates deeper product issues using logs and configs, then escalates confirmed bugs to engineering",
+            "Fixes staff laptops and Wi-Fi problems",
+            "Writes the product roadmap",
+            "Only greets customers and takes messages"
+          ],
+          "answer": 0,
+          "explain": "L2 is the deeper investigation layer: logs, configs, reproduction, then a clean handover to L3 engineering."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the word for reading a new ticket and deciding what it is, how urgent it is, and where it should go?",
+          "answers": ["triage"],
+          "hint": "A six-letter word also used in hospital emergency rooms.",
+          "explain": "Triage: classify, prioritize, and route new tickets."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A company's own employee using the company's internal HR tool is which kind of user?",
+          "options": [
+            "An internal user",
+            "An external user",
+            "A tenant",
+            "An L3 engineer"
+          ],
+          "answer": 0,
+          "explain": "Internal users are the company's own staff; external users are the paying customers."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this escalation path in order, from first contact to the team that owns the code",
+          "items": [
+            "L1 support answers and applies documented fixes",
+            "L1 escalates to L2 when the issue is deeper than the documented fixes",
+            "L2 reproduces the issue and gathers evidence",
+            "L2 hands a confirmed defect to L3 engineering",
+            "Engineering ships a fix back down the chain"
+          ],
+          "explain": "L1 to L2 to L3, with evidence travelling up and the fix travelling back down."
+        }
+      ]
+    },
+    {
+      "title": "Environments and Releases",
+      "body": "Software companies keep separate **environments** — copies of the application running different versions — and knowing which is which prevents most embarrassing mistakes.\n\n| Environment | Purpose |\n| --- | --- |\n| development (dev) | Developers run code here while writing it |\n| test / QA | Testers and automated checks hunt for bugs |\n| staging | A near-copy of the live system, used for final checks |\n| production | The live system real customers use |\n\nThe phrase 'it works in staging' is a support rite of passage: staging and production can differ in data, configuration, traffic volume, or connected third parties, and finding that difference is often the actual job.\n\nCode reaches production through a **deployment** (*deploy* for short): packaging a build and rolling it out to the live servers. Users see a **release**, usually labeled with a **version number** like `2.4.1`. Many features are hidden behind **feature flags** — configuration switches that turn a feature on or off without redeploying — so the same code can be live but invisible. When a release makes things worse, teams perform a **rollback**: returning production to the previous known-good version.\n\nAs support, your reflexes: always ask 'what changed recently?', and never test a suspected change directly on production without approval.",
+      "exercises": [
+        {
+          "type": "input",
+          "prompt": "In which environment do real customers of a SaaS product use the app? (one word)",
+          "answers": ["production", "prod"],
+          "hint": "The live one — the only environment customers ever see.",
+          "explain": "Production is the live environment; dev, test, and staging exist so mistakes never reach it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which environment is a near-copy of the live system, used for final checks before a release?",
+          "options": [
+            "Staging",
+            "Development",
+            "The database",
+            "The customer's browser"
+          ],
+          "answer": 0,
+          "explain": "Staging mirrors production closely so the release can be exercised one last time before customers see it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is a rollback?",
+          "options": [
+            "Returning production to the previous known-good version after a bad release",
+            "Deleting a customer's account",
+            "Rolling a brand-new feature out to everyone",
+            "Reversing a payment to a customer"
+          ],
+          "answer": 0,
+          "explain": "A rollback undoes the release: production goes back to the last version that worked."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these release steps in order, from a developer's machine to the customer",
+          "items": [
+            "A developer writes and commits the code",
+            "Automated tests run against a build of the code",
+            "The build is deployed to staging for final checks",
+            "The release is deployed to production",
+            "Customers see the new version (or its feature flag is switched on)"
+          ],
+          "explain": "Commit, test, staging, production, then customers — each step exists to catch problems earlier than the last."
+        }
+      ]
+    },
+    {
+      "title": "The Software Behind the Ticket",
+      "body": "When a ticket says 'the page is broken', you are looking at the end of a chain. A typical SaaS request flows like this:\n\n1. The **web front end** — the HTML, CSS, and JavaScript rendered by the user's browser.\n2. An **API** (application programming interface), the structured doorway the front end calls to get or change data, usually speaking HTTP with JSON.\n3. **Application code** on a server, which applies the business rules.\n4. A **database**, which stores the records.\n\nTwo more pieces matter. **Background jobs** handle work that should not make the user wait — sending nightly emails, generating large exports — often running on queues. **Third-party integrations** are other companies' services doing part of the work: payment processors like Stripe, email providers, mapping APIs. And a **cache** keeps recently used data in fast storage so the database is not hammered; a stale cache can serve old data even when the database is correct.\n\nWhy this map matters: each layer fails differently. A blank screen often points at the front end; a 500 error often points at code, the database, or an integration; a job that 'never arrived' is usually a background job. Learn to ask which layer the symptom lives in before guessing at causes.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A customer's nightly export email never arrives, but the app itself works fine all day. Which component is most likely involved?",
+          "options": [
+            "The background job or queue that sends exports",
+            "The customer's browser cache",
+            "The DNS record for the website",
+            "The front-end stylesheet"
+          ],
+          "answer": 0,
+          "explain": "Work that happens after the user stops waiting — emails, exports — is done by background jobs, so that is where a silent failure lives."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the name for the fast storage that keeps recently used data so the database is not queried on every request?",
+          "answers": ["cache", "caching", "a cache"],
+          "hint": "It is also a verb: to ___ data for later.",
+          "explain": "A cache holds recently used data close and fast; a stale cache can serve outdated results."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is an API in a SaaS product?",
+          "options": [
+            "The structured interface the front end (and other systems) call to get or change data",
+            "A printed manual given to customers",
+            "The company's internal chat channel",
+            "A nightly backup of the database"
+          ],
+          "answer": 0,
+          "explain": "The API is the doorway every request walks through: it receives calls, runs logic, and returns data."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of a typical user request in the order they happen",
+          "items": [
+            "The browser loads and renders the web front end",
+            "The front end sends a request to the API",
+            "The API runs application code against the business rules",
+            "The application queries the database",
+            "The API sends the response back and the page updates"
+          ],
+          "explain": "Front end, API, application code, database, then back out — know this path and you know where to look."
+        }
+      ]
+    },
+    {
+      "title": "The Working Day and Career Path",
+      "body": "A day in application support has a rhythm. Start with **daily checks**: scan the monitoring dashboard for red flags, skim tickets that arrived overnight, and read the release notes to see what shipped while you slept. Then work the queue, oldest-first or by severity, depending on the team's rules. Many teams also hold a short stand-up to surface anything urgent.\n\n**Shift handover** is the ritual of writing down what the next shift needs: open escalations, half-finished investigations, promises made to customers. A good handover note means the issue does not die when you log off.\n\n**On-call** means being the person reachable outside office hours when something breaks at 3 a.m. On-call rotations usually pair a support engineer with someone who can deploy or roll back, and the skill is less heroics than following the runbook — the written procedure for known incidents.\n\nEverything you learn should go into **documentation**: knowledge base articles that turn tomorrow's mystery into today's checklist. Career-wise, application support is a launchpad. Natural next steps are **senior support**, **SRE / DevOps** (keeping systems running), **software engineering**, or **customer success**, which focuses on making sure accounts get value from the product. The diagnosis skills transfer to all of them.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does being 'on-call' mean?",
+          "options": [
+            "Being the person reachable outside office hours to respond when something breaks",
+            "Working only during business hours",
+            "Managing the sales pipeline",
+            "Writing the company newsletter"
+          ],
+          "answer": 0,
+          "explain": "On-call is the out-of-hours rota: the phone can ring at 3 a.m. and you follow the runbook."
+        },
+        {
+          "type": "input",
+          "prompt": "What does SLA stand for? (the agreement that sets promised response and resolution times)",
+          "answers": ["service level agreement"],
+          "hint": "Service, level, agreement — in that order.",
+          "explain": "A service level agreement sets the promised times, for example a one-hour first response on critical tickets."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the start of a support shift in a sensible order",
+          "items": [
+            "Check the monitoring dashboard for new alerts",
+            "Skim tickets that arrived overnight",
+            "Read the release notes for recent changes",
+            "Pick up the queue and start triaging"
+          ],
+          "explain": "Look at system health, then inbound work, then what changed — and only then dig into the queue."
+        }
+      ]
+    }
+  ]
+}

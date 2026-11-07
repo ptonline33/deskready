@@ -1,0 +1,246 @@
+{
+  "id": "communication",
+  "title": "Communication and Customer Service",
+  "subtitle": "Write so users trust you",
+  "color": "#c084fc",
+  "order": 7,
+  "description": "The writing, questioning and de-escalation skills that make support engineers effective: first replies people trust, questions that actually get answered, honest bad news, calm handling of angry users, and handoffs engineers can act on.",
+  "lessons": [
+    {
+      "title": "The First Reply",
+      "body": "A first reply does three jobs at once: it proves a human read the ticket, it names who owns it, and it says what happens next. Miss any of the three and the user starts chasing you, which costs more time than a good reply would.\n\nFour parts, always in this order:\n\n1. **Acknowledge** — thank them and confirm the ticket is received.\n2. **Own it** — your name and the ticket number.\n3. **Summarise** — restate the problem in your own words so you both mean the same thing.\n4. **Set expectations** — say when they will hear from you next.\n\n```\nHi Priya,\n\nThanks for the report — I'm handling SUP-1042.\n\nSaving the invoice screen throws a 500 error, on Chrome,\nsince about 09:20 this morning. Does that match what you see?\n\nI'm pulling the logs now and will update you by 14:00,\neven if the fix isn't ready by then.\n\n— Sam, Application Support\n```\n\nNever send a bare `We are looking into it` with no name and no time, a help article that ignores their words, or internal jargon like `the cron job failed`. They care about their invoice, not your cron job.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST first reply to a brand-new ticket?",
+          "options": [
+            "Thanks for the report — I own SUP-1042. Saving the invoice screen returns a 500 in Chrome since 09:20, and I'll update you by 14:00.",
+            "We are looking into it.",
+            "Have you tried clearing your cache? This article might help: https://example.com/cache",
+            "Your ticket has been escalated to the relevant team."
+          ],
+          "answer": 0,
+          "explain": "It does all four jobs: it acknowledges, shows ownership, summarises the issue, and gives a time for the next update. The others leave the user guessing who owns the ticket and when they will hear back.",
+          "hint": "Look for the reply that names a person, restates the problem, and gives a time."
+        },
+        {
+          "type": "input",
+          "prompt": "Which part of the four-part first reply means restating the user's problem in your own words?",
+          "answers": ["summarise", "summarize"],
+          "explain": "The summary proves you actually read the ticket — you and the user must mean the same thing before any troubleshooting starts.",
+          "hint": "The lesson spells it the British way: sum-ma-rise."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the four parts of a strong first reply in the correct order",
+          "items": [
+            "Thank them and confirm the ticket was received",
+            "Say who you are and that you own it",
+            "Restate the problem in your own words",
+            "Say when they will hear from you next"
+          ],
+          "explain": "Acknowledge, own, summarise, set expectations — proof a human read it first, a promise about the future last.",
+          "hint": "Start with proof you read the ticket, end with a time you will come back."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST way to set expectations when you don't yet know the fix?",
+          "options": [
+            "I'll update you by 15:00 with what I've found, even if the fix isn't ready.",
+            "This will be fixed within the hour, I promise.",
+            "Someone will get back to you at some point.",
+            "Our SLA is four business days."
+          ],
+          "answer": 0,
+          "explain": "Promise the update, not the fix: you control when you write, not when the code gets fixed. An over-confident ETA you miss costs more trust than saying nothing.",
+          "hint": "Which promise can you keep even if the bug is still unsolved?"
+        }
+      ]
+    },
+    {
+      "title": "Questions That Get Answers",
+      "body": "Timelines rarely stall because a bug is hard. They stall because the answer to the last question was `it broke`. Vague answers come from vague questions.\n\nAsk only for things a user can check without guessing:\n\n- **Exact steps** — what did you click, in order, starting from the page you opened?\n- **Timestamps** — what time did it fail, and what time zone are you in?\n- **A screenshot** — with the error visible, plus the reference number if the app shows one.\n- **Environment** — browser and version, app version, device, account ID.\n\nAsk **one question at a time**. Three questions in a single message usually earns one answer to the third. When you need them to reproduce a failure, ask permission and name the risk:\n\n> Could you try saving that invoice again while I watch the logs? It is read-only on my side and takes about a minute.\n\nPolite, specific, and it says what is safe. What to avoid: `Can you check?` (check what?) and `Does it still happen?` (in which browser, at what time, doing what?).",
+      "exercises": [
+        {
+          "type": "input",
+          "prompt": "Name the picture of the user's screen that you should ask them to attach so you can see the exact error for yourself",
+          "answers": ["screenshot"],
+          "explain": "A screenshot carries the exact error text, the URL, and the moment it happened — details users routinely paraphrase away.",
+          "hint": "A picture of what is on their display."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST question to send a user who wrote only 'the export is broken'?",
+          "options": [
+            "What exact steps do you take to export, starting from the page you open?",
+            "Does it still happen?",
+            "Why is the export broken?",
+            "Can you check it again?"
+          ],
+          "answer": 0,
+          "explain": "It asks for exact steps in a form the user can answer by describing what they did. The others are open-ended, vague, or ask the user to do your diagnosis for you.",
+          "hint": "Pick the question that turns 'it's broken' into a sequence you can repeat."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the parts of a good information request in the order they should appear in your message",
+          "items": [
+            "Acknowledge what the user already told you",
+            "Explain why you need more detail",
+            "Ask one specific question",
+            "Say exactly how to send the answer, for example paste a screenshot into the ticket"
+          ],
+          "explain": "Confirm you read their message, justify the ask, ask a single focused question, then make replying effortless.",
+          "hint": "It opens by proving you read the ticket and closes by making the reply easy."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST way to ask a user to reproduce a failure?",
+          "options": [
+            "Reproduce the issue as soon as possible and report back.",
+            "Do it again and tell me what happens.",
+            "Could you try saving the invoice again while I watch the logs? It is read-only on my side and takes about a minute.",
+            "Try it on your side and fix whatever you find."
+          ],
+          "answer": 2,
+          "explain": "It says what to do, that it is safe, how long it takes, and why you are asking — so the user can say yes without worrying.",
+          "hint": "Which request would you be happy to accept as a customer?"
+        }
+      ]
+    },
+    {
+      "title": "Bad News and Delays",
+      "body": "Bad news ages well when it is honest and specific, and badly when it is padded. The user's real question is rarely 'what is the root cause' — it is 'am I still blocked, and does anyone care?'\n\nA delay update has four parts: what you know now, what you still do not know, what is being done next and by whom, and when you will write again. Keep that last time even when nothing has changed; a kept promise at 16:00 beats silence.\n\nAbout **ETAs**: promise the update, not the fix. `I'll know more by 16:00` is a promise you control. `It'll be fixed by 16:00` is a promise you probably do not. Give a fix ETA only when the team that owns the fix has given you one.\n\nAvoid blame (`the network team broke it`) and jargon (`the queue consumer is backing up`). Translate instead: we have traced the slowness to a background job and the platform team is on it.\n\nWhen there is no fix at all, say so plainly:\n\n> No fix yet, and I would rather not guess at a time. I am still testing a workaround and will update you at 16:00 either way.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST update to send a user while the fix is still hours away?",
+          "options": [
+            "We've found the cause, the platform team is on it, and I'll update you at 16:00 either way.",
+            "It should be fixed shortly.",
+            "Everything is working normally now.",
+            "We are aware of the issue and apologise for the inconvenience."
+          ],
+          "answer": 0,
+          "explain": "It gives known facts, names who is acting, and commits to a specific next contact — the three things a blocked user is actually waiting for.",
+          "hint": "Which update tells the user something new and ends with a time?"
+        },
+        {
+          "type": "input",
+          "prompt": "The promised time for your next update to the user, written as a three-letter acronym",
+          "answers": ["ETA", "eta"],
+          "explain": "An ETA is a forecast. Give one for your next update every time; give one for the fix only when someone has given you one.",
+          "hint": "Estimated time of ..."
+        },
+        {
+          "type": "input",
+          "prompt": "The contractual target for how quickly you must respond to or resolve a ticket — three-letter acronym",
+          "answers": ["SLA", "sla"],
+          "explain": "An SLA is the agreed clock. It tells the user why you are chasing, and it tells you when a ticket is about to breach.",
+          "hint": "Service Level ..."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the four parts of a delay update in the correct order",
+          "items": [
+            "What you know for certain now",
+            "What you still do not know",
+            "What is being done next, and who is doing it",
+            "When you will write to them again"
+          ],
+          "explain": "Facts, then honest gaps, then action with an owner, then the next contact time.",
+          "hint": "End on a promise you control."
+        }
+      ]
+    },
+    {
+      "title": "Difficult Conversations",
+      "body": "An angry user is rarely angry at you personally. They are blocked, often in front of their own manager or customer, and the ticket is the only lever they have. De-escalation works on that assumption.\n\nThe sequence that defuses most angry messages:\n\n1. **Acknowledge the impact** — name the cost to their work, not the technical fault.\n2. **Take ownership** — one name, one ticket, one person.\n3. **Skip the defence** — no `unfortunately, as per policy`, no blaming their browser or a colleague.\n4. **Give a next step and a time** — a concrete action, then when they will hear from you.\n\nBefore: `That's odd, it works on our side. Have you tried clearing your cache?`\n\nAfter: `You've lost two hours of work on the export — that's on us. I'm taking SUP-1042 myself and will come back to you by 13:00 with a fix or a workaround.`\n\nSet a boundary without heat. Swap `You need to calm down` for `I want this fixed for you — to do that I need the error reference at the bottom of the screen.` You are refusing the tone, not the person.\n\nEscalate early rather than late: if the user asks for a refund, a contract change, or anything you cannot promise — or mentions legal action — hand it to your manager with a two-line note.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST reply to a message that opens: 'This is completely unacceptable — we've lost two hours because of your system'?",
+          "options": [
+            "Please calm down so we can proceed with the troubleshooting.",
+            "It works on our side, so the problem is most likely your browser.",
+            "You've lost two hours of work and that matters — I own SUP-1042 and will update you by 13:00 with a fix or a workaround.",
+            "I've passed this to engineering and they will contact you when they can."
+          ],
+          "answer": 2,
+          "explain": "It acknowledges the real cost first, takes personal ownership, and gives a time — the three moves that lower the temperature. The others defend, deflect, or pass the ticket on.",
+          "hint": "Look for impact first, then a name, then a time."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the four moves of de-escalation in the order they should appear in your reply",
+          "items": [
+            "Acknowledge the impact on their work",
+            "Take ownership with your name and the ticket number",
+            "Give a concrete next step and a time you will update them",
+            "Set a calm boundary if the tone stays personal"
+          ],
+          "explain": "Impact first, ownership second, a time third — a boundary only if the personal tone continues.",
+          "hint": "The user needs to feel heard before they can hear your plan."
+        },
+        {
+          "type": "input",
+          "prompt": "Name the first move of de-escalation: showing the user you understand what the problem has cost them",
+          "answers": ["acknowledge", "acknowledging", "acknowledgement"],
+          "explain": "Acknowledging the impact proves you are standing on their side of the problem — everything you say after it lands better.",
+          "hint": "It starts with A and comes before any technical explanation."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST boundary-setting line when a user's messages are getting personal?",
+          "options": [
+            "I want this fixed for you — to do that I need the error reference at the bottom of your screen.",
+            "Calm down or I'll close this ticket.",
+            "I'm not responding until you write politely.",
+            "Your tone is making it hard to help you."
+          ],
+          "answer": 0,
+          "explain": "It redirects to the task and states exactly what you need, without judging the person. The others make the tone the issue, which usually raises the temperature.",
+          "hint": "Pick the line that keeps the ticket moving."
+        }
+      ]
+    },
+    {
+      "title": "Handoffs and Internal Writing",
+      "body": "Your escalation note is read by an engineer who has not seen the ticket, often between two other fires. Write it so they can act without sending you one question back.\n\nA usable note has five lines:\n\n- **Issue** — one sentence: the user-visible symptom, not your theory.\n- **Scope** — one user or everyone? which account, region, browser, version?\n- **Evidence** — error codes, timestamps, log lines, request IDs, screenshot links.\n- **Tried** — what you have already tested, so they do not repeat it.\n- **Impact** — who is blocked, and any SLA clock that is running.\n\n```\nISSUE:  Save on /invoices returns HTTP 500 since 09:20 BST.\nSCOPE:  Acme Corp only; 3 users reported; Chrome 129.\nEVID:   req_id 8f31c2; NullPointerException at\n        InvoiceService.save, line 214.\nTRIED:  Reproduced on staging; cache cleared; no deploy today.\nIMPACT: Finance blocked from month-end close; SLA breach 17:00.\n```\n\nAfter the handoff you still own the conversation. Tell the user the ticket has moved, who has it, and when you will write next. Silence after a handoff is how trust dies: the engineer is busy, so the update is your job.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST escalation note?",
+          "options": [
+            "App is broken, please fix ASAP.",
+            "ISSUE: /invoices save returns HTTP 500 since 09:20. SCOPE: Acme Corp, 3 users, Chrome 129. TRIED: reproduced on staging. IMPACT: month-end close blocked, SLA breach at 17:00.",
+            "Customer is unhappy — see ticket SUP-318.",
+            "There's a NullPointerException in the logs; the customer should upgrade Chrome."
+          ],
+          "answer": 1,
+          "explain": "It gives symptom, scope, work already done, and business impact with a deadline — everything an engineer needs to start without a single follow-up question.",
+          "hint": "Which note lets an engineer begin work immediately?"
+        },
+        {
+          "type": "input",
+          "prompt": "What single word means to pass a ticket up to a higher level of support?",
+          "answers": ["escalate"],
+          "explain": "Escalating hands the problem to someone with more authority or skill — the note you write is the thing they act on.",
+          "hint": "The ladder a ticket climbs when it goes up a level."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of a clean handoff in the correct order",
+          "items": [
+            "Write the escalation note with evidence and impact",
+            "Assign the ticket and tell the engineer what you need",
+            "Tell the user the ticket has moved and who now owns it",
+            "Give the user a time for your next update, and keep it"
+          ],
+          "explain": "Note first, engineer second, user third — and you stay the owner of the conversation with a time attached.",
+          "hint": "Nobody should learn about the handoff after it happened."
+        }
+      ]
+    }
+  ]
+}

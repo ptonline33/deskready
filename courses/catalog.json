@@ -1,0 +1,204 @@
+{
+  "courses": [
+    {
+      "id": "fundamentals",
+      "title": "Application Support Fundamentals",
+      "subtitle": "What the job actually is",
+      "description": "Learn the role, the teams, the environments, and the tools behind a software company's support desk. The vocabulary and mental map you need before your first interview or shift.",
+      "color": "#ff8a3d",
+      "lessons": 5,
+      "exercises": 19,
+      "path": "courses/fundamentals/"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting and Debugging",
+      "subtitle": "A repeatable method that holds up in interviews",
+      "description": "A structured method for diagnosing application problems: capture the report, gather evidence, test one hypothesis at a time, and document what you learned so it never costs a day again.",
+      "color": "#3ddc84",
+      "lessons": 5,
+      "exercises": 20,
+      "path": "courses/troubleshooting/"
+    },
+    {
+      "id": "sql",
+      "title": "SQL for Application Support",
+      "subtitle": "Find the data behind the ticket",
+      "description": "Answer real support questions from a small support database: ticket statuses and priorities, joins to customers and agents, and counts that prove what is happening. Every query runs in the page.",
+      "color": "#7b5cff",
+      "lessons": 5,
+      "exercises": 20,
+      "path": "courses/sql/"
+    },
+    {
+      "id": "tickets",
+      "title": "Tickets, Incidents and ITIL",
+      "subtitle": "How support work is tracked and prioritised",
+      "description": "How a SaaS support team records and runs real work: clear ticket fields, P1-P4 priorities and SLAs, the major-incident lifecycle, problem and change records, and escalation that never drops the customer.",
+      "color": "#ffb020",
+      "lessons": 5,
+      "exercises": 20,
+      "path": "courses/tickets/"
+    },
+    {
+      "id": "linux",
+      "title": "Linux and the Command Line for Support",
+      "subtitle": "Navigate, inspect, and grab evidence fast",
+      "description": "Nearly every SaaS server runs Linux. Learn the shell commands support engineers use every day to navigate a box, read its logs, check its resources, and prove what happened.",
+      "color": "#3ee6ff",
+      "lessons": 5,
+      "exercises": 19,
+      "path": "courses/linux/"
+    },
+    {
+      "id": "logs",
+      "title": "Logs, Monitoring and Alerting",
+      "subtitle": "Know before the customer does",
+      "description": "Read a log line like a detective, turn noisy output into signal, and use metrics and alerts so your team hears about trouble before the customer does.",
+      "color": "#ff3d81",
+      "lessons": 5,
+      "exercises": 19,
+      "path": "courses/logs/"
+    },
+    {
+      "id": "communication",
+      "title": "Communication and Customer Service",
+      "subtitle": "Write so users trust you",
+      "description": "The writing, questioning and de-escalation skills that make support engineers effective: first replies people trust, questions that actually get answered, honest bad news, calm handling of angry users, and handoffs engineers can act on.",
+      "color": "#c084fc",
+      "lessons": 5,
+      "exercises": 19,
+      "path": "courses/communication/"
+    },
+    {
+      "id": "interview",
+      "title": "Interviewing for Application Support",
+      "subtitle": "Turn your experience into an offer",
+      "description": "Prepare the parts of an Application Support interview that are actually rehearseable: reading the job ad, STAR stories, technical and behavioural scenarios, take-home ticket exercises, and the questions you ask back.",
+      "color": "#ff5470",
+      "lessons": 5,
+      "exercises": 20,
+      "path": "courses/interview/"
+    },
+    {
+      "id": "shell",
+      "title": "Linux & the Command Line, In Depth",
+      "subtitle": "Weeks 1-2: navigate, inspect and shape a Linux box",
+      "description": "A deep, hands-on tour of the Linux shell for anyone heading into data or platform work: the filesystem, permissions, searching, pipes, text processing with sed/awk, and processes, services and cron.",
+      "color": "#3ee6ff",
+      "lessons": 9,
+      "exercises": 36,
+      "path": "courses/shell/"
+    },
+    {
+      "id": "bash",
+      "title": "Bash Scripting & Automation",
+      "subtitle": "Week 3: turn commands into reliable scripts",
+      "description": "Write Bash scripts that automate real work: variables and quoting, arguments and exit codes, conditionals and loops, functions and arrays, safe scripting with set -euo pipefail and traps, and a full backup-script walkthrough.",
+      "color": "#f5a623",
+      "lessons": 6,
+      "exercises": 24,
+      "path": "courses/bash/"
+    },
+    {
+      "id": "git",
+      "title": "Git & Version Control",
+      "subtitle": "Weeks 3-4: track every change with confidence",
+      "description": "Version control from first principles: the working tree and staging area, commits and history, branching and merging, remotes and pull requests, safely rewriting history, and recovering from mistakes.",
+      "color": "#ff8a3d",
+      "lessons": 6,
+      "exercises": 24,
+      "path": "courses/git/"
+    },
+    {
+      "id": "sql-core",
+      "title": "SQL Fundamentals",
+      "subtitle": "Weeks 5-7: query any relational database",
+      "description": "Build SQL from the ground up on a realistic sample database: selecting and filtering rows, NULLs, sorting, aggregates, joining tables, subqueries, and an introduction to CTEs and window functions. Most lessons have runnable queries.",
+      "color": "#7b5cff",
+      "lessons": 8,
+      "exercises": 32,
+      "path": "courses/sql-core/"
+    },
+    {
+      "id": "postgres",
+      "title": "PostgreSQL Essentials",
+      "subtitle": "Week 8: types, psql, indexes, EXPLAIN and transactions",
+      "description": "Go under the hood of PostgreSQL: rich data types and constraints, the psql CLI, how indexes actually work, reading EXPLAIN plans, and how transactions, MVCC and locking keep concurrent writes correct.",
+      "color": "#4f8cff",
+      "lessons": 6,
+      "exercises": 24,
+      "path": "courses/postgres/"
+    },
+    {
+      "id": "sql-tuning",
+      "title": "SQL Performance Tuning",
+      "subtitle": "Week 9: make slow queries fast",
+      "description": "A practical method for speeding up slow queries: read the execution plan, design the right index, rewrite the query, keep statistics fresh, resolve lock contention, and use materialized views and partitioning on large tables.",
+      "color": "#3df2c0",
+      "lessons": 6,
+      "exercises": 24,
+      "path": "courses/sql-tuning/"
+    },
+    {
+      "id": "pg-ops",
+      "title": "PostgreSQL Operations",
+      "subtitle": "Week 10: back up, replicate and secure a Postgres server",
+      "description": "The day-two operations that keep a database safe: backups and point-in-time recovery, replication and read replicas, roles and least-privilege access, connection pooling with pgbouncer, and the maintenance routine every DBA owns.",
+      "color": "#00bcd4",
+      "lessons": 5,
+      "exercises": 20,
+      "path": "courses/pg-ops/"
+    },
+    {
+      "id": "python-data",
+      "title": "Python for Data",
+      "subtitle": "Weeks 11-14: script, transform and load data",
+      "description": "From your first script to a working ETL job: Python basics and virtual environments, control flow and comprehensions, functions and error handling, files with pathlib/CSV/JSON, pandas dataframes, groupby and merges, and talking to a database with parameterized queries.",
+      "color": "#ffd166",
+      "lessons": 8,
+      "exercises": 32,
+      "path": "courses/python-data/"
+    },
+    {
+      "id": "aws",
+      "title": "AWS Cloud Foundations",
+      "subtitle": "Weeks 15-18: where data lives and runs",
+      "description": "Learn one cloud deeply and map the rest: accounts and the shared model, IAM and least privilege, S3 storage, EC2 and security groups, VPC networking, managed databases with RDS, serverless with Lambda, and infrastructure as code with Terraform.",
+      "color": "#ff9900",
+      "lessons": 8,
+      "exercises": 32,
+      "path": "courses/aws/"
+    },
+    {
+      "id": "dbt",
+      "title": "dbt Analytics Engineering",
+      "subtitle": "Weeks 19-22: tested, versioned SQL transformations",
+      "description": "Turn raw tables into a documented, tested warehouse with dbt: models and the DAG, sources and staging, materializations including incremental, tests as quality gates, docs and lineage, and macros with snapshots for slowly changing dimensions.",
+      "color": "#ff694a",
+      "lessons": 7,
+      "exercises": 28,
+      "path": "courses/dbt/"
+    },
+    {
+      "id": "docker-k8s",
+      "title": "Docker & Kubernetes Essentials",
+      "subtitle": "Weeks 23-25: package and run services anywhere",
+      "description": "Containerise applications and run them on a cluster: images vs containers, writing Dockerfiles, volumes and networking, Docker Compose for multi-service stacks, then Kubernetes pods, deployments, services, config, storage and Helm.",
+      "color": "#2496ed",
+      "lessons": 7,
+      "exercises": 28,
+      "path": "courses/docker-k8s/"
+    },
+    {
+      "id": "capstone",
+      "title": "Capstone & Interview Prep",
+      "subtitle": "Week 26: turn the work into an offer",
+      "description": "The finishing week: assemble a capstone project that proves you can do the job end to end, add tests and CI, drill the SQL and Linux interview scenarios, write STAR stories from your support experience, and rehearse the portfolio walkthrough that turns practice into an offer.",
+      "color": "#c084fc",
+      "lessons": 6,
+      "exercises": 24,
+      "path": "courses/capstone/"
+    }
+  ]
+}

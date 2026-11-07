@@ -1,0 +1,494 @@
+{
+  "id": "sql-tuning",
+  "title": "SQL Performance Tuning",
+  "subtitle": "Week 9: make slow queries fast",
+  "color": "#3df2c0",
+  "order": 16,
+  "description": "A practical method for speeding up slow queries: read the execution plan, design the right index, rewrite the query, keep statistics fresh, resolve lock contention, and use materialized views and partitioning on large tables.",
+  "lessons": [
+    {
+      "title": "A Method for Tuning",
+      "body": "Tuning starts with a number, not a hunch. Two databases can hold the same rows and return the same result in ten milliseconds and in ten seconds, so the only honest statement about speed is a measurement taken before and after a change.\n\nThe loop is always the same:\n\n1. **Reproduce** the slowness on a system you can measure.\n2. **Measure** the baseline: how long does the query take?\n3. **Read the plan** to see where the time goes.\n4. **Change one thing** - an index, a rewrite, a statistic.\n5. **Measure again** and keep the change only if the number moved.\n\nIn PostgreSQL the two tools that find slow work are `pg_stat_statements` and `log_min_duration_statement`. The extension aggregates every statement the server ran:\n\n| column | meaning |\n| --- | --- |\n| `calls` | how many times the statement ran |\n| `total_exec_time` | milliseconds spent in total |\n| `mean_exec_time` | average milliseconds per call |\n| `rows` | rows returned |\n\nSort by `total_exec_time` to find the queries that cost the whole system most, or by `mean_exec_time` to find the ones that are slow individually. Setting `log_min_duration_statement = 1000` makes the server write any statement slower than a second to the log - which is how you catch the query that runs once, but ruins someone's afternoon.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "You are asked to speed up a slow report. What is the first step?",
+          "options": [
+            "Measure its current runtime and capture the execution plan",
+            "Add an index on every column of the table",
+            "Rewrite the query from scratch",
+            "Increase the server's memory"
+          ],
+          "answer": 0,
+          "explain": "Without a baseline you cannot tell whether a change helped. Measure first, then read the plan, then change one thing at a time.",
+          "hint": "You cannot improve what you have not measured."
+        },
+        {
+          "type": "input",
+          "prompt": "Which PostgreSQL setting logs every statement that runs longer than a chosen number of milliseconds?",
+          "answers": [
+            "log_min_duration_statement"
+          ],
+          "hint": "It starts with log_min_ and ends with _statement.",
+          "explain": "log_min_duration_statement = 1000 writes any statement running longer than one second to the server log."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the tuning loop in the order you should follow it",
+          "items": [
+            "Measure the baseline runtime",
+            "Read the execution plan",
+            "Change exactly one thing",
+            "Measure again and keep or revert the change"
+          ],
+          "explain": "Reproduce and measure, inspect the plan, make one change, then re-measure. Changing several things at once means you never learn which one helped.",
+          "hint": "Start with a measurement and end with a measurement."
+        },
+        {
+          "type": "sql",
+          "prompt": "The query_log table records statements the server ran. Which single statement has the largest mean_ms? Show its query text and mean_ms.",
+          "starter": "SELECT query, mean_ms FROM query_log ",
+          "db": [
+            {
+              "name": "query_log",
+              "columns": [
+                "id",
+                "query",
+                "calls",
+                "mean_ms",
+                "total_ms"
+              ],
+              "rows": [
+                [
+                  1,
+                  "SELECT * FROM orders WHERE status = 'open'",
+                  1200,
+                  480,
+                  576000
+                ],
+                [
+                  2,
+                  "SELECT count(*) FROM events",
+                  300,
+                  1200,
+                  360000
+                ],
+                [
+                  3,
+                  "SELECT * FROM tickets WHERE customer_id = 7",
+                  9000,
+                  3,
+                  27000
+                ],
+                [
+                  4,
+                  "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50",
+                  1500,
+                  90,
+                  135000
+                ],
+                [
+                  5,
+                  "SELECT * FROM sessions WHERE user_id = 42",
+                  5000,
+                  8,
+                  40000
+                ]
+              ]
+            }
+          ],
+          "solution": "SELECT query, mean_ms FROM query_log ORDER BY mean_ms DESC LIMIT 1",
+          "expected": {
+            "columns": [
+              "query",
+              "mean_ms"
+            ],
+            "rows": [
+              [
+                "SELECT count(*) FROM events",
+                1200
+              ]
+            ]
+          },
+          "ordered": true,
+          "hint": "Sort by mean_ms descending and keep only the top row.",
+          "explain": "Sorting by mean_ms DESC puts the individually slowest statement first; LIMIT 1 trims the rest."
+        }
+      ]
+    },
+    {
+      "title": "Reading Plans Like a Pro",
+      "body": "`EXPLAIN` shows the plan the planner intends to use; `EXPLAIN ANALYZE` actually runs the query and adds what happened. Read the output as an indented tree: the innermost nodes feed their parent.\n\n```\nHash Join  (cost=1.09..2.10 rows=1 width=8) (actual time=0.03..0.05 rows=1000 loops=1)\n  Hash Cond: (t.customer_id = c.id)\n  ->  Seq Scan on tickets t  (cost=0.00..1.00 rows=1 width=8) (actual time=0.01..0.30 rows=50000 loops=1)\n  ->  Hash  (cost=1.00..1.00 rows=1000 width=4)\n        ->  Seq Scan on customers c  (cost=0.00..1.00 rows=1000 width=4)\n```\n\nEvery node prints `cost=startup..total rows=estimate width=bytes`. With `ANALYZE` it also prints `actual time=start..end rows=actual loops=n`. Always compare the estimated row count with the actual one; a large gap means the planner is flying blind and may have chosen the wrong algorithm.\n\nFour smells worth memorising:\n\n- **Seq Scan on a big table** where you expected an index. Sequential scans are fine for small tables and expensive for millions of rows.\n- **Estimates diverging from actuals**, for example `rows=10` estimated but `rows=100000` returned. The planner costed a plan for ten rows.\n- **Nested Loop** with a large `loops` count or a big outer side: the inner side runs once per outer row, so the cost multiplies.\n- **Sort** reporting `Sort Method: external merge Disk: 8192kB`. That sort did not fit in `work_mem` and spilled to disk.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A plan shows `Seq Scan on orders` on a 20-million-row table, even though the filter is on an indexed column. What is the most likely explanation?",
+          "options": [
+            "The planner estimated the filter would match a large share of rows, so a scan looked cheaper than the index",
+            "Sequential scans are always the fastest way to read a table",
+            "The table is empty",
+            "The query contains a syntax error"
+          ],
+          "answer": 0,
+          "explain": "The planner weighs the index against a scan. If a predicate has low selectivity (keeps most rows), or statistics are stale, it can conclude the scan is cheaper.",
+          "hint": "The planner is comparing two ways to read the same rows."
+        },
+        {
+          "type": "input",
+          "prompt": "Which command runs the query and reports actual rows and timings, not just the planner's estimates?",
+          "answers": [
+            "explain analyze",
+            "explain analyze;"
+          ],
+          "hint": "It is EXPLAIN plus one word.",
+          "explain": "EXPLAIN ANALYZE executes the statement and adds actual time and actual rows to each node."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these plan-reading steps in a sensible order",
+          "items": [
+            "Read the most indented nodes first",
+            "Compare estimated rows with actual rows",
+            "Look for a Seq Scan on a large table",
+            "Check whether any sort spilled to disk"
+          ],
+          "explain": "Start at the leaves that supply the rows, then check where the planner's estimates drifted, then look for the expensive access and sort nodes.",
+          "hint": "Follow the data from the innermost nodes outwards."
+        },
+        {
+          "type": "mcq",
+          "prompt": "You see `Sort Method: external merge  Disk: 8192kB` on a Sort node. What does this tell you?",
+          "options": [
+            "The sort did not fit in memory and spilled to disk",
+            "The sort was skipped because the data was already ordered",
+            "The table has 8192 rows",
+            "The query returned 8192 rows"
+          ],
+          "answer": 0,
+          "explain": "An external merge sort means the data exceeded work_mem. Raising work_mem, or adding an index that returns rows in order, can remove the spill.",
+          "hint": "The word 'Disk' is the giveaway."
+        }
+      ]
+    },
+    {
+      "title": "Index Strategy",
+      "body": "An index is a sorted structure - a B-tree by default in PostgreSQL - that lets the database jump to matching rows instead of reading every page. Create one on the columns you filter, join and sort by:\n\n```sql\nCREATE INDEX idx_tickets_status ON tickets (status);\nCREATE INDEX idx_tickets_status_created ON tickets (status, created_at);\n```\n\nA composite index follows the **leftmost prefix** rule: `(status, created_at)` serves a filter on `status`, or on `status` plus `created_at`, but not on `created_at` alone. Put equality columns first and range or sort columns after, so the index satisfies the equality and still returns the range in order.\n\nSpecial shapes cover special cases. A **partial index** only indexes the rows you care about, so it stays small:\n\n```sql\nCREATE INDEX idx_tickets_open ON tickets (created_at) WHERE status = 'Open';\n```\n\nAn **expression index** indexes a computed value when the query cannot change:\n\n```sql\nCREATE INDEX idx_users_email_lower ON users (lower(email));\n```\n\nAn index is simply ignored when it cannot help. Common reasons: a **type mismatch** (`WHERE id = '42'` compares text with a number), a **function wrapped around the column** (`WHERE lower(email) = ...` matches no plain index), or **low selectivity** - if a filter keeps most rows, reading the whole table is cheaper. Indexes also slow down writes, so add the ones you have measured a need for.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "You created `INDEX ... ON tickets (status, created_at)`. Which query can use it?",
+          "options": [
+            "WHERE status = 'Open' AND created_at > '2024-01-01'",
+            "WHERE created_at > '2024-01-01'",
+            "WHERE priority = 'P1'",
+            "WHERE lower(status) = 'open'"
+          ],
+          "answer": 0,
+          "explain": "The leftmost prefix is status. Both columns together match the index; created_at alone, priority, and a function on status do not.",
+          "hint": "A composite index is used from its leftmost column."
+        },
+        {
+          "type": "mcq",
+          "prompt": "`WHERE lower(email) = 'a@b.com'` is slow even though `email` is indexed. Why?",
+          "options": [
+            "The function wraps the column, so the plain index on email cannot be used",
+            "email values are unique",
+            "The index is corrupt",
+            "lower() is not allowed in a WHERE clause"
+          ],
+          "answer": 0,
+          "explain": "An index on email is ordered by the raw value. Wrapping the column in lower() makes the predicate unsargable unless you create an expression index on lower(email).",
+          "hint": "Think about what the index is sorted by."
+        },
+        {
+          "type": "input",
+          "prompt": "Which property of a predicate makes an index less attractive to the planner: high or low selectivity? (one word)",
+          "answers": [
+            "low",
+            "low selectivity"
+          ],
+          "hint": "Selectivity is the fraction of rows the filter keeps.",
+          "explain": "A low-selectivity filter keeps a large share of rows, so a sequential scan can be cheaper than walking the index and then the table."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a partial index named `idx_orders_open` on the `orders` table covering `created_at`, but only for rows where `status = 'open'`.",
+          "patterns": [
+            {
+              "re": "create\\s+index",
+              "m": "start with CREATE INDEX"
+            },
+            {
+              "re": "on\\s+orders",
+              "m": "index the orders table"
+            },
+            {
+              "re": "created_at",
+              "m": "include the created_at column"
+            },
+            {
+              "re": "where\\s+status\\s*=\\s*'open'",
+              "m": "add the partial WHERE status = 'open' clause"
+            }
+          ],
+          "solution": "CREATE INDEX idx_orders_open ON orders (created_at) WHERE status = 'open';",
+          "explain": "A partial index only indexes the rows matching its WHERE clause, so it stays small and cheap to maintain.",
+          "hint": "CREATE INDEX name ON table (column) WHERE condition;"
+        }
+      ]
+    },
+    {
+      "title": "Rewriting Queries",
+      "body": "The fastest query is one the database does not have to think hard about. A **sargable** predicate is one an index can satisfy directly; wrap the indexed column in a function and you have made it unsargable:\n\n```sql\n-- no index can help: the column is transformed\nSELECT * FROM orders WHERE date_trunc('day', created_at) = '2024-01-01';\n\n-- sargable: a range over the bare column\nSELECT * FROM orders\nWHERE created_at >= '2024-01-01' AND created_at < '2024-01-02';\n```\n\nAvoid `SELECT *` when you need only a few columns. It transfers more data on the wire and it defeats an **index-only scan**, where the answer is read from the index without visiting the table at all.\n\nReplace correlated subqueries with joins or `EXISTS`. A correlated subquery runs once per outer row; the join runs once for the whole set. The **N+1** problem is the same disease in application code: one query to fetch a list, then one query per row to fetch its details. Batch it into a single `WHERE id = ANY(...)` or a join.\n\nFinally, `OR` across different columns can defeat indexes; splitting it into two `UNION ALL` branches lets each half use its own index. Always re-measure after a rewrite - sometimes the planner already had the better idea.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which predicate is sargable against an indexed `created_at` column?",
+          "options": [
+            "created_at >= '2024-01-01' AND created_at < '2024-01-02'",
+            "date_trunc('day', created_at) = '2024-01-01'",
+            "CAST(created_at AS text) LIKE '2024%'",
+            "created_at + interval '1 day' > now()"
+          ],
+          "answer": 0,
+          "explain": "Only the bare-column range lets the B-tree seek to the starting value and walk forward. Every other form transforms the column and cannot use the index.",
+          "hint": "The index is ordered by the raw column value."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A page runs one query for the list, then one query for each of 500 rows. What is this problem called and how do you fix it?",
+          "options": [
+            "The N+1 problem; fetch the children in one batched query or a join",
+            "A deadlock; restart the database",
+            "Bloat; run VACUUM",
+            "A type mismatch; cast the columns"
+          ],
+          "answer": 0,
+          "explain": "N+1 means one query plus N extra queries. Batching the child lookups into a single query with an IN list or a join removes the per-row round trips.",
+          "hint": "Count the queries: 1 + 500."
+        },
+        {
+          "type": "input",
+          "prompt": "Name the property of a predicate that means an index can be used directly to find matching rows (one word).",
+          "answers": [
+            "sargable"
+          ],
+          "hint": "It starts with 'sarg'.",
+          "explain": "A sargable predicate can use a search argument - an index - because the column is left bare and compared to a value."
+        },
+        {
+          "type": "order",
+          "prompt": "You are replacing a correlated subquery with a join. Put the rewrite steps in order",
+          "items": [
+            "Identify the subquery that runs once per outer row",
+            "Rewrite it as an explicit JOIN ... ON",
+            "Move any subquery conditions into the main WHERE clause",
+            "Re-run EXPLAIN ANALYZE and compare the timings"
+          ],
+          "explain": "Name the per-row work, turn it into a set-based join, fold its filters into the main query, then measure to confirm the gain.",
+          "hint": "Find the problem, convert it, tidy the filters, then measure."
+        }
+      ]
+    },
+    {
+      "title": "Statistics and Maintenance",
+      "body": "The planner is a cost model, and it is only as accurate as the **statistics** it keeps about each table. Those live in the system catalogue; you read them through the view `pg_stats`:\n\n| column | what it tells the planner |\n| --- | --- |\n| `n_distinct` | roughly how many different values a column holds |\n| `most_common_vals` | the values that appear most often |\n| `histogram_bounds` | the spread of values across the rest |\n\nTwo ideas drive everything. **Selectivity** is the fraction of rows a predicate keeps; **cardinality** is the number of rows the planner expects a step to return. If selectivity is estimated wrongly, cardinality is wrong, and the chosen scan or join is wrong with it.\n\n`ANALYZE` refreshes those numbers by sampling the table. Autovacuum runs it for you, but after a bulk load you should run it yourself so plans reflect the new data:\n\n```sql\nANALYZE orders;\n```\n\n`VACUUM` matters too. It reclaims space left by deleted and updated rows and marks pages all-visible, which lets index-only scans skip the heap entirely. A bloated table holds more pages than its live rows need, so every sequential scan reads dead weight and estimates drift stale. Keep autovacuum on, and tune it for big, busy tables rather than disabling it.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `ANALYZE` do?",
+          "options": [
+            "Refreshes the statistics the planner uses to estimate rows",
+            "Deletes old rows to free space",
+            "Rebuilds every index on the table",
+            "Caches the last query result"
+          ],
+          "answer": 0,
+          "explain": "ANALYZE samples the table and updates pg_statistic, changing n_distinct, most_common_vals and the histogram that the planner reads.",
+          "hint": "It feeds the cost model, it does not delete anything."
+        },
+        {
+          "type": "input",
+          "prompt": "Which SQL command updates a table's statistics by sampling it?",
+          "answers": [
+            "analyze",
+            "analyse"
+          ],
+          "hint": "One word, six or seven letters.",
+          "explain": "ANALYZE (or ANALYSE, the accepted spelling) recomputes the statistics for one table or the whole database."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A predicate is estimated to keep 1% of a 10-million-row table (100,000 rows) but actually returns 1 row. Why does that matter?",
+          "options": [
+            "The planner may choose a plan suited to 100,000 rows, such as a nested loop, and run slowly",
+            "It does not matter; estimates are only cosmetic",
+            "The table will be dropped",
+            "The query will return duplicate rows"
+          ],
+          "answer": 0,
+          "explain": "Plan choice follows the estimate. A wildly wrong cardinality leads to the wrong join or scan strategy, which is why fresh statistics matter.",
+          "hint": "The planner picks the cheapest plan for the rows it expects."
+        },
+        {
+          "type": "sql",
+          "prompt": "The table_stats table lists live and dead rows per table. Which tables have more than 15000 dead rows? Show name and dead_rows, most dead rows first.",
+          "starter": "SELECT name, dead_rows FROM table_stats ",
+          "db": [
+            {
+              "name": "table_stats",
+              "columns": [
+                "name",
+                "live_rows",
+                "dead_rows"
+              ],
+              "rows": [
+                [
+                  "orders",
+                  1200000,
+                  45000
+                ],
+                [
+                  "events",
+                  8000000,
+                  12000
+                ],
+                [
+                  "sessions",
+                  300000,
+                  60000
+                ],
+                [
+                  "audit_log",
+                  25000,
+                  200
+                ],
+                [
+                  "tickets",
+                  90000,
+                  15000
+                ]
+              ]
+            }
+          ],
+          "solution": "SELECT name, dead_rows FROM table_stats WHERE dead_rows > 15000 ORDER BY dead_rows DESC",
+          "expected": {
+            "columns": [
+              "name",
+              "dead_rows"
+            ],
+            "rows": [
+              [
+                "sessions",
+                60000
+              ],
+              [
+                "orders",
+                45000
+              ]
+            ]
+          },
+          "ordered": true,
+          "hint": "Filter with WHERE dead_rows > 15000, then sort descending.",
+          "explain": "Only sessions (60000) and orders (45000) exceed 15000 dead rows; sorting descending lists the most bloated first."
+        }
+      ]
+    },
+    {
+      "title": "Heavy Machinery",
+      "body": "When a query is expensive because it aggregates a huge table again and again, stop recomputing it. A **materialized view** stores the result of a query on disk, so readers hit the stored copy:\n\n```sql\nCREATE MATERIALIZED VIEW daily_revenue AS\nSELECT day, sum(amount) AS revenue\nFROM payments\nGROUP BY day;\n\nREFRESH MATERIALIZED VIEW CONCURRENTLY daily_revenue;\n```\n\nThe trade is freshness for speed: the view is only as current as its last refresh. A plain `REFRESH` locks readers out while it rebuilds; `CONCURRENTLY` lets it run alongside traffic, at the cost of needing a unique index. Refresh on a schedule, or straight after the load that changes the data.\n\n**Partitioning** splits one logical table into many physical ones, usually by range on a date:\n\n```sql\nCREATE TABLE events (id bigint, created_at date, payload jsonb)\nPARTITION BY RANGE (created_at);\n\nCREATE TABLE events_2024_01 PARTITION OF events\nFOR VALUES FROM ('2024-01-01') TO ('2024-02-01');\n```\n\nThe planner can then prune: a query for January touches only `events_2024_01`. Old data leaves by detaching a partition, which is instant compared with a mass `DELETE`. Partition when tables are genuinely large, when most queries filter on the partition key, and when you need cheap retention. Otherwise the extra objects and planning overhead outweigh the gain.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the main trade-off of a materialized view?",
+          "options": [
+            "Freshness for speed: the stored result is only as current as its last refresh",
+            "Read speed for write permissions",
+            "Storage engine choice",
+            "There is no trade-off; it is always current"
+          ],
+          "answer": 0,
+          "explain": "A materialized view removes repeated aggregation work but serves data as of its last refresh, so you must decide how stale it may be.",
+          "hint": "The data is stored, not recomputed on every read."
+        },
+        {
+          "type": "input",
+          "prompt": "Which keyword makes `REFRESH MATERIALIZED VIEW` update without blocking readers?",
+          "answers": [
+            "concurrently"
+          ],
+          "hint": "It requires a unique index on the view.",
+          "explain": "REFRESH MATERIALIZED VIEW CONCURRENTLY builds the new contents alongside the old, then swaps them in, so readers are not locked out."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps for partitioning a time-series table in order",
+          "items": [
+            "Choose the partition key, usually the date column",
+            "Create the parent table with PARTITION BY RANGE",
+            "Create each partition with its FROM and TO bounds",
+            "Query the parent table so the planner prunes to one partition"
+          ],
+          "explain": "Pick the key, declare the partitioned parent, add child partitions with bounds, then query the parent and let pruning do the rest.",
+          "hint": "Declare the parent before its children."
+        },
+        {
+          "type": "sql",
+          "prompt": "The daily_revenue materialized view holds one row per day. Show the three most recent days, newest first.",
+          "starter": "SELECT day, revenue FROM daily_revenue ",
+          "db": [
+            {
+              "name": "daily_revenue",
+              "columns": [
+                "day",
+                "revenue"
+              ],
+              "rows": [
+                [
+                  "2024-03-01",
+                  12000
+                ],
+                [
+                  "2024-03-02",
+                  15000
+                ],
+                [
+                  "2024-03-03",
+                  9000
+                ],
+                [
+                  "2024-03-04",
+                  18000
+                ]
+              ]
+            }
+          ],
+          "solution": "SELECT day, revenue FROM daily_revenue ORDER BY day DESC LIMIT 3",
+          "expected": {
+            "columns": [
+              "day",
+              "revenue"
+            ],
+            "rows": [
+              [
+                "2024-03-04",
+                18000
+              ],
+              [
+                "2024-03-03",
+                9000
+              ],
+              [
+                "2024-03-02",
+                15000
+              ]
+            ]
+          },
+          "ordered": true,
+          "hint": "Sort the day column descending, then keep three rows.",
+          "explain": "Reading the pre-computed view avoids re-aggregating payments; ORDER BY day DESC with LIMIT 3 gives the latest days."
+        }
+      ]
+    }
+  ]
+}

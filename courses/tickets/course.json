@@ -1,0 +1,255 @@
+{
+  "id": "tickets",
+  "title": "Tickets, Incidents and ITIL",
+  "subtitle": "How support work is tracked and prioritised",
+  "color": "#ffb020",
+  "order": 4,
+  "description": "How a SaaS support team records and runs real work: clear ticket fields, P1-P4 priorities and SLAs, the major-incident lifecycle, problem and change records, and escalation that never drops the customer.",
+  "lessons": [
+    {
+      "title": "Anatomy of a Good Ticket",
+      "body": "A **ticket** is the single record of one request or problem: everything anyone needs to know, in one place, so the work survives handoffs, holidays and shift changes. A good ticket answers questions before anyone has to ask them.\n\nThe fields worth filling in every time:\n\n| field | what it holds |\n| --- | --- |\n| **subject** | a one-line summary of the problem |\n| **requester** | who is affected, and their account |\n| **environment** | browser, app version, region, device |\n| **priority** | P1-P4, how fast this must move |\n| **steps to reproduce** | numbered clicks that trigger the bug |\n| **expected vs actual** | what should happen, and what happens |\n| **attachments** | screenshots, logs, HAR files |\n\nThe subject line does the heaviest lifting: it is what people search for and what a manager scans in a queue of forty. Make it specific - `Export to CSV returns an empty file for Enterprise users`, never `export broken???`. A good subject names the **feature**, the **symptom** and enough **context** to route it to the right team in seconds.\n\nEverything else exists so the next person, maybe in another timezone, can pick the ticket up cold and keep going.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put these ticket fields in the order they appear on the ticket form in this lesson",
+          "items": [
+            "Subject",
+            "Requester",
+            "Environment",
+            "Priority",
+            "Steps to reproduce"
+          ],
+          "explain": "Subject and requester identify the ticket, environment and priority frame it, then the detailed description follows.",
+          "hint": "Follow the table in the lesson, top to bottom."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the best subject line for a support ticket?",
+          "options": [
+            "Export to CSV returns an empty file for Enterprise users",
+            "help!!!",
+            "The app is broken again",
+            "URGENT asap please look"
+          ],
+          "answer": 0,
+          "explain": "It names the feature, the symptom and the context, so it routes to the right team in seconds.",
+          "hint": "Good subjects are specific: feature, symptom, who is affected."
+        },
+        {
+          "type": "input",
+          "prompt": "A bug report contrasts expected behaviour with what the software really does. What is that second column of the comparison called?",
+          "answers": ["actual", "actual behaviour", "actual behavior"],
+          "hint": "Expected versus this word - it is the opposite of what you planned.",
+          "explain": "Expected vs actual turns a vague complaint into a test someone else can repeat."
+        },
+        {
+          "type": "input",
+          "prompt": "Which ticket field records the browser, app version, region and device the problem happened on?",
+          "answers": ["environment"],
+          "hint": "It describes the surroundings the software was running in.",
+          "explain": "The environment field lets the next agent reproduce and route the issue without a reply-all email chain."
+        }
+      ]
+    },
+    {
+      "title": "Priorities, Severities and SLAs",
+      "body": "**Priority** is how fast the team must act. Most SaaS support teams use the same four-level scale:\n\n| priority | means | typical response target |\n| --- | --- | --- |\n| **P1** | service down, or a core feature unusable for many | 15 minutes, 24/7 |\n| **P2** | major degradation, no workaround | 1 hour |\n| **P3** | minor issue with a workaround | 4 hours |\n| **P4** | question or how-to | next business day |\n\nDo not confuse priority with **severity**. Severity is the technical impact: how many users are hit, how badly. Priority adds business judgement on top. A display glitch on the checkout page is low severity but high priority, because money is involved. That is why they are two separate fields on the ticket.\n\nAn **SLA** (service level agreement) is the promise attached to the priority, in two flavours: a **response target** (how long until a human replies) and a **resolution target** (how long until it is fixed or safely worked around). Miss it and you have an **SLA breach**, which gets tracked. Targets count **business hours** - 9 to 5, Monday to Friday - unless the priority says 24/7. A P1 does not wait for Monday.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put these priorities in order from the fastest response target to the slowest",
+          "items": [
+            "P1 — respond within 15 minutes",
+            "P2 — respond within 1 hour",
+            "P3 — respond within 4 hours",
+            "P4 — respond within the next business day"
+          ],
+          "explain": "The lower the number, the hotter the ticket: P1 is a 15-minute, round-the-clock target.",
+          "hint": "Lower number means more urgent."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A small visual glitch affects a few customers on the checkout page. Technical severity is low. What should the priority be?",
+          "options": [
+            "High, because priority adds business impact on top of technical severity",
+            "Low, because severity decides priority",
+            "P4, because only a few users see it",
+            "Whatever the customer asks for"
+          ],
+          "answer": 0,
+          "explain": "Severity is technical impact; priority also weighs revenue, contracts and reputation.",
+          "hint": "Where does the money flow through?"
+        },
+        {
+          "type": "input",
+          "prompt": "When a ticket misses its promised target, the team records an SLA ___.",
+          "answers": ["breach"],
+          "hint": "The word for a broken promise or a hole in a wall.",
+          "explain": "An SLA breach is logged against the team, which is why priority is set honestly and not always at P1."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between a response target and a resolution target?",
+          "options": [
+            "Response is the time to a human's first reply; resolution is the time to a fix or safe workaround",
+            "Response is the customer replying; resolution is the engineer replying",
+            "Response applies to P4 tickets only; resolution applies to P1",
+            "They are two names for the same target"
+          ],
+          "answer": 0,
+          "explain": "Two clocks start when the ticket arrives: one for a human answered, one for it is fixed.",
+          "hint": "One is about contact, the other about the actual fix."
+        }
+      ]
+    },
+    {
+      "title": "The Incident Lifecycle",
+      "body": "An **incident** is not an ordinary ticket: a core feature is broken or the service is down for many users, and the clock is loud. Teams follow a fixed lifecycle so nobody improvises under pressure:\n\n```text\n detect -> declare -> assign -> investigate -> workaround -> resolve -> postmortem\n```\n\n**Detect** comes from a monitoring alert or a cluster of customer reports. **Declare** means saying out loud that this is a major incident - naming it early is never wrong. Then an **incident commander** is assigned: one person who coordinates while everyone else investigates, so the channel is not twelve people talking at once. Most teams also open an **incident bridge**, a live call or chat room that stays open until the incident closes.\n\nCommunication runs on a fixed rhythm: a status page note and a stakeholder update every 30 minutes, even when nothing has changed, because silence is what makes people panic.\n\nWhen the workaround or fix is live, the incident is resolved and customers are told. The final step is the **postmortem**: a blameless review of the timeline, the root cause, and the action items that stop it happening again.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the major-incident lifecycle in order, from the first alert to the finished review",
+          "items": [
+            "Detect the problem from alerts or customer reports",
+            "Declare a major incident and open a bridge",
+            "Assign an incident commander and investigate",
+            "Ship a workaround or fix, then resolve the incident",
+            "Hold a blameless postmortem with action items"
+          ],
+          "explain": "Detect, declare, coordinate and investigate, restore service, then learn from it afterwards.",
+          "hint": "You cannot fix what nobody has declared, and you cannot learn until it is over."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is an incident bridge?",
+          "options": [
+            "A live call or chat room where responders coordinate while the incident runs",
+            "The fix that ends the incident",
+            "The written report produced after the incident",
+            "A link on the public status page"
+          ],
+          "answer": 0,
+          "explain": "One room, one conversation: responders share findings live instead of playing email tag.",
+          "hint": "It is a place people stay during the incident, not a document written after it."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the document written after a major incident, recording the timeline, root cause and action items?",
+          "answers": ["postmortem", "post-mortem", "post mortem"],
+          "hint": "Literally after the deed - the same word used in medicine and engineering.",
+          "explain": "A blameless postmortem fixes processes and action items, not people, so the truth actually surfaces."
+        },
+        {
+          "type": "input",
+          "prompt": "During a major incident, updates go out on a fixed ___: a set rhythm like every 30 minutes, even when there is no news. Give the single word from the lesson.",
+          "answers": ["cadence", "rhythm"],
+          "hint": "A word borrowed from music for a beat that repeats.",
+          "explain": "A predictable cadence builds trust; going quiet after the first update is what makes customers escalate."
+        }
+      ]
+    },
+    {
+      "title": "Problems, Known Errors and Changes",
+      "body": "Three words that look alike but describe different jobs:\n\n- **Incident**: the service is down *now*. The only goal is to restore it - restart, reroute, apply a workaround. Speed beats elegance.\n- **Problem**: the service keeps breaking and you want to know *why*. A **problem record** opens after the incident closes, and **root cause analysis** digs past the symptom to the trigger.\n- **Change**: you deliberately alter something - a config, a version, a schema - usually to remove that root cause for good.\n\nWhen the root cause is known but not yet fixed, you write it up as a **known error** in the **known error database (KEDB)**, with the **workaround** documented. The next L1 agent then resolves a repeat ticket in one reply instead of two hours.\n\nFixes to production travel as a **change request**: what will change, when, who is affected, and a **back-out plan** for if it goes wrong. A **CAB** (change advisory board) reviews risky changes, and most teams deploy inside a **change window** - a quiet slot like Tuesday 10pm, never Friday afternoon.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A service is down and you restart a server to bring it back. Which activity is this?",
+          "options": [
+            "Incident - restore service first",
+            "Problem - find the root cause",
+            "Change - a planned modification",
+            "Known error documentation"
+          ],
+          "answer": 0,
+          "explain": "Incidents optimise for restoring service; the root cause work happens afterwards in a problem record.",
+          "hint": "The customer's service is broken this second - what matters right now?"
+        },
+        {
+          "type": "order",
+          "prompt": "The same bug keeps recurring. Put these ITIL steps in the order they should happen",
+          "items": [
+            "Incident: restore service fast with a workaround",
+            "Problem: investigate the root cause",
+            "Known error: document the cause and the workaround",
+            "Change request: schedule the permanent fix in a change window"
+          ],
+          "explain": "Restore first, understand second, document what you learned, then ship the permanent fix safely.",
+          "hint": "Nobody can schedule a fix before they know what is broken."
+        },
+        {
+          "type": "input",
+          "prompt": "What does CAB stand for when a change request is reviewed before it goes ahead?",
+          "answers": ["change advisory board"],
+          "hint": "An advisory group that sits before risky changes are allowed through.",
+          "explain": "The CAB asks the awkward questions - rollout, blast radius, back-out - while there is still time to say no."
+        },
+        {
+          "type": "mcq",
+          "prompt": "The root cause of a recurring error is understood, but the permanent fix is not shipped yet. What should the next agent read to resolve a fresh ticket quickly?",
+          "options": [
+            "The known error record, which holds the cause and the documented workaround",
+            "The incident record from the original outage",
+            "An unrelated change request",
+            "Nothing - every agent should investigate from scratch"
+          ],
+          "answer": 0,
+          "explain": "The known error database exists exactly for this: cause plus workaround, ready to reuse.",
+          "hint": "Which record is written to be read by the next person, not just reviewed by management?"
+        }
+      ]
+    },
+    {
+      "title": "Escalation and Ownership",
+      "body": "There are two directions to escalate, and mixing them up is the classic mistake.\n\n**Functional escalation** moves the ticket sideways to people with the right skill: L1 support to an L2 engineer, then to the Identity team, then to engineering. You are asking for *knowledge*.\n\n**Hierarchical escalation** moves it upwards: your lead, then a manager, then a director. You are asking for *authority* - a refund, an exception, a promise, or help with an angry executive. Sending that furious enterprise customer to a senior engineer achieves nothing; they needed a manager.\n\nEscalate on triggers, not feelings: you have been stuck for 30 minutes, the SLA is close to breaching, the customer asked for a manager, or the issue involves data loss or security.\n\n**Ownership** does not end at the handoff. You raised the ticket, so you stay on it: brief the next responder in writing, tell the customer what happened and what happens next, and close only after they confirm the fix. Hand over silently and tickets fall between people.\n\n**Follow-the-sun** is the global version: EMEA writes a handover, APAC picks the ticket up, so work keeps moving while everyone sleeps.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "An enterprise customer demands a refund you are not allowed to authorise. Where does that go?",
+          "options": [
+            "Hierarchical escalation - up to your lead or a manager, who has the authority",
+            "Functional escalation - to an L2 engineer",
+            "No escalation; refuse politely and close the ticket",
+            "To the CAB for review"
+          ],
+          "answer": 0,
+          "explain": "You need authority, not knowledge - that is a vertical, hierarchical escalation.",
+          "hint": "Ask yourself whether you are missing a skill or a permission."
+        },
+        {
+          "type": "input",
+          "prompt": "Escalating sideways to a team with more skill, rather than upwards to a manager, is called ___ escalation.",
+          "answers": ["functional"],
+          "hint": "Think the right function for the job, not higher up the org chart.",
+          "explain": "Functional escalation swaps in expertise; hierarchical escalation asks for authority."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this follow-the-sun handover in order",
+          "items": [
+            "EMEA agent writes a handover of what they tried and what is known",
+            "The ticket moves to the APAC queue at the end of the EMEA shift",
+            "The APAC agent reads the handover before touching the ticket",
+            "The APAC agent posts an update to the customer and continues the work"
+          ],
+          "explain": "Write it down, hand it over, read it before acting, then keep the customer informed - the loop never goes cold.",
+          "hint": "The handover has to exist before anyone can read it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why stay attached to a ticket after you have escalated it?",
+          "options": [
+            "Ownership ends only when the customer confirms the fix - you keep them updated and close it",
+            "Because the tool will not let you remove yourself",
+            "Because the new owner now handles all customer communication",
+            "Because the SLA timer pauses while you are assigned"
+          ],
+          "answer": 0,
+          "explain": "The escalator remains the customer's contact until the loop is closed - that is what ownership means.",
+          "hint": "Who did the customer originally talk to?"
+        }
+      ]
+    }
+  ]
+}

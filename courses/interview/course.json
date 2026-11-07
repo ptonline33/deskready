@@ -1,0 +1,265 @@
+{
+  "id": "interview",
+  "title": "Interviewing for Application Support",
+  "subtitle": "Turn your experience into an offer",
+  "color": "#ff5470",
+  "order": 8,
+  "description": "Prepare the parts of an Application Support interview that are actually rehearseable: reading the job ad, STAR stories, technical and behavioural scenarios, take-home ticket exercises, and the questions you ask back.",
+  "lessons": [
+    {
+      "title": "Reading the Job Ad",
+      "body": "A job ad is a shopping list written by a hiring manager, and it sorts itself into two piles. **Must-have** items are deal-breakers: if the ad says two years supporting a live SaaS product and you cannot show that, you will not be screened in. **Nice-to-have** items — GraphQL, Kubernetes, a second language — are tie-breakers you can grow into.\n\nRead it once, then read it again with a highlighter. Application Support ads keep repeating the same keywords:\n\n- **troubleshooting** — structured diagnosis, not guessing\n- **SQL** — pulling account data and checking rows by hand\n- **Linux / logs** — `grep`, service checks, timestamps\n- **ITIL / SLAs** — ticket lifecycle, priorities, response targets\n- **APIs** — HTTP status codes, `curl`, request IDs\n- **ticketing systems** — Zendesk, Jira Service Management, Freshdesk\n\nThen map every must-have to one line of evidence from your own history: they need X, here is when I did X. Keep a gap list too — anything missing you learn before the screen, and anything major you answer honestly with what you did instead.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the steps of reading a job ad in the correct order",
+          "items": [
+            "List every requirement the ad states",
+            "Split them into must-have and nice-to-have",
+            "Match each must-have to a specific example from your experience",
+            "Note your gaps and prepare an honest answer for each"
+          ],
+          "explain": "Extract, sort, prove, patch — you cannot map your experience until you know what is being asked, and you should never be caught hiding a gap.",
+          "hint": "Start by taking the ad apart, end by preparing for what you lack."
+        },
+        {
+          "type": "input",
+          "prompt": "Which three-letter query language appears in most Application Support ads for pulling account data by hand?",
+          "answers": ["SQL", "sql"],
+          "explain": "Basic SELECT, WHERE and JOIN queries come up in almost every screen for this role — they want to see you can read the data directly instead of waiting for a developer.",
+          "hint": "Structured Query ..."
+        },
+        {
+          "type": "mcq",
+          "prompt": "The ad asks for strong SQL, and you have only written simple SELECT queries. Which is the BEST move?",
+          "options": [
+            "Say you are comfortable with SELECT and WHERE on real tables, name what you have queried, and add that you are practising joins",
+            "Claim you are advanced in SQL and hope the screen stays easy",
+            "Leave SQL off your CV entirely so it never comes up",
+            "Write 'familiar with databases' and move on"
+          ],
+          "answer": 0,
+          "explain": "Honest, specific, and it shows direction: real examples plus a plan to close the gap beats a claim you cannot back up when they put a query in front of you.",
+          "hint": "The strongest answers are true and specific."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST example of a nice-to-have in an Application Support ad?",
+          "options": [
+            "Exposure to GraphQL webhooks",
+            "Experience handling tickets against agreed SLAs",
+            "Confidence writing SQL queries",
+            "Two years supporting a live SaaS product"
+          ],
+          "answer": 0,
+          "explain": "The other three are the daily work of the role; a niche integration detail is exactly the kind of thing a team is happy to teach you in your first month.",
+          "hint": "Nice-to-haves are extras, not the job itself."
+        }
+      ]
+    },
+    {
+      "title": "Your Story in STAR",
+      "body": "Every behavioural answer runs on the same four wheels: **STAR** — Situation, Task, Action, Result. Interviewers are not testing your memory; they are checking whether you work in a repeatable way.\n\n- **Situation** — one or two sentences of context: where, when, what was at stake.\n- **Task** — what you personally were responsible for.\n- **Action** — the steps you took, in order, with the specific moves you actually made.\n- **Result** — what changed, ideally in numbers, plus what you learned.\n\n'Tell me about yourself' is STAR in disguise: a short past (what you have done), a present (what you do now), and a future (why this role). Aim for 60 to 90 seconds.\n\nA strong *why application support?* answer joins the two sides of the job:\n\n> I like the part of engineering where a fix reaches a person the same day, and I like talking to users enough to want the whole loop — reproduce, fix, explain.\n\nAnd results need numbers. Not 'we reduced ticket volume' but 'I rewrote the password-reset article and repeat tickets fell from 40 a week to 12'. Numbers are what they write down.",
+      "exercises": [
+        {
+          "type": "order",
+          "prompt": "Put the four steps of the STAR method in order",
+          "items": [
+            "Situation — where you were and what was at stake",
+            "Task — what you were personally responsible for",
+            "Action — the specific steps you took",
+            "Result — what changed, with a number if you have one"
+          ],
+          "explain": "Context, your responsibility, what you did, what happened — in that order, every time.",
+          "hint": "It opens with the scene and closes with the outcome."
+        },
+        {
+          "type": "input",
+          "prompt": "In the STAR method, which letter stands for the quantified outcome you achieved?",
+          "answers": ["R", "r"],
+          "explain": "Result is where you prove impact: 'repeat tickets fell from 40 a week to 12' beats 'things improved' every time.",
+          "hint": "The last letter of STAR."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST structure for your answer to 'Tell me about yourself'?",
+          "options": [
+            "Everything on your CV, in chronological order from school onwards",
+            "Past: what you have done; present: what you do now; future: why this role fits — all in 60 to 90 seconds",
+            "A list of every tool and technology you have used",
+            "Your availability, then your salary expectations, then your background"
+          ],
+          "answer": 1,
+          "explain": "Past, present, future, tightly timed: it gives the interviewer a shape to follow and ends by pointing at their job. The others bury the point or jump ahead to negotiation.",
+          "hint": "Where have you been, what do you do now, why this job?"
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST way to close an answer about an improvement you made to tickets?",
+          "options": [
+            "It went well and the team was happy with it.",
+            "I rewrote the password-reset article, and repeat tickets on that issue fell from 40 a week to 12.",
+            "It was a lot of work, but we all learned a lot.",
+            "The main thing is that customers appreciated the effort."
+          ],
+          "answer": 1,
+          "explain": "A specific action plus a number is what an interviewer can quote in the debrief. The others describe a feeling, not an outcome.",
+          "hint": "Pick the ending a hiring manager could repeat to the next person on the panel."
+        }
+      ]
+    },
+    {
+      "title": "Technical Screening",
+      "body": "The technical screen is not a quiz — it is a window into how you think when you do not know the answer yet. Two scenarios come up constantly.\n\n**'Our customers say login has become slow.'** Resist naming a cause first. Ask: everyone or one account, since when, browser or app, any recent changes, can you time it? Then think aloud along the path — DNS, app server, database, network — saying what you would check at each hop and what the evidence would mean.\n\n**'A report shows wrong totals.'** Ask which report, which filters, and what the user expected to see. Wrong totals are usually one of four things: a filter that is switched off, a join duplicating rows, a stale cached extract, or a date and timezone boundary.\n\nTwo rules carry the whole screen:\n\n- **Think aloud.** Silence reads as 'no idea'. Narrate your hypotheses and your evidence.\n- **Ask, don't guess.** `Is this one account or all of them?` beats a confident monologue about the database.\n\nOpeners that work: 'Can I check a couple of things first?' and 'My first hypothesis is X — how would I confirm that here?'",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A customer reports that login has become slow. Which is the BEST opening move?",
+          "options": [
+            "Tell them to clear their browser cache and try again.",
+            "Explain that login times look normal on your side.",
+            "Ask whether it is everyone or one account, since when, and whether they can time it — then start reading the logs",
+            "Escalate to the database team immediately."
+          ],
+          "answer": 2,
+          "explain": "Scope and timing first, then evidence: that is how you turn 'it feels slow' into something you can measure, search for, and hand on if needed.",
+          "hint": "Which option gathers facts before naming a cause?"
+        },
+        {
+          "type": "order",
+          "prompt": "Put your approach to 'the report shows wrong totals' in the correct order",
+          "items": [
+            "Ask which report, which filters, and what the user expected",
+            "Verify the source rows are correct for the same period",
+            "Check the query logic — a join can duplicate rows",
+            "Check the date and timezone boundaries on the range"
+          ],
+          "explain": "Clarify the expectation, then work outward from the raw data: data first, then logic, then the trickiest suspect — the time window.",
+          "hint": "Start with what they expected to see, finish with the suspect that hides most."
+        },
+        {
+          "type": "input",
+          "prompt": "What two-word phrase means narrating your reasoning out loud during a technical screen instead of sitting in silence?",
+          "answers": ["think aloud", "thinking aloud"],
+          "explain": "Interviewers score the process, not just the destination — a visible thought process is worth far more than a silent correct answer.",
+          "hint": "Say your thoughts as they happen."
+        },
+        {
+          "type": "mcq",
+          "prompt": "You are asked a scenario question you have never seen before. Which is the BEST response?",
+          "options": [
+            "Pick a likely cause immediately so you look confident.",
+            "Say it is new to you, ask two or three clarifying questions, then walk through how you would investigate step by step.",
+            "Redirect to a similar problem you already know the answer to.",
+            "Ask the interviewer to reveal the intended answer."
+          ],
+          "answer": 1,
+          "explain": "Clarity plus method is what they are scoring: admitting the gap, narrowing it with questions, and showing a route beats a lucky guess you cannot justify.",
+          "hint": "What shows both honesty and a working method?"
+        }
+      ]
+    },
+    {
+      "title": "Behavioural Questions",
+      "body": "Behavioural questions sound like small talk and are not: *tell me about a mistake*, *a disagreement with a coworker*, *a day when everything broke at once*, *a tool you had to learn fast*. They all want the same thing — evidence, in STAR shape, from something that really happened.\n\nPick stories you can reuse. Four stories cover most of the genre:\n\n- **A mistake you made** — what you missed, how you found out, what you changed so it cannot repeat. They want the fix, not the confession.\n- **A conflict** — how you separated the person from the problem, and what you agreed.\n- **Pressure** — how you chose what to do first, and by what rule: user impact, SLA clock, or money.\n- **Learning fast** — the tool, how long it took, where you used it afterwards.\n\nKeep each story to about 90 seconds: two sentences of context, most of the time on *your actions*, then the number in the result.\n\nOne honesty rule: never invent. If the interviewer drills with 'and what did the customer say next?', a made-up story collapses on the second question. A real, modest story with a clear result beats an epic one you cannot defend.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST answer to 'Tell me about a time you made a mistake'?",
+          "options": [
+            "I once closed a ticket as resolved while the customer was still blocked. I reopened it, called them the same hour, fixed the real issue, and now I confirm with the customer before closing anything.",
+            "I don't really make mistakes, so I can't think of one.",
+            "A colleague once deleted a table and I covered for them.",
+            "Mistakes happen to everyone — the important thing is to move on."
+          ],
+          "answer": 0,
+          "explain": "It gives a real mistake, the recovery action, and the process change that stops it repeating — the three parts an interviewer listens for.",
+          "hint": "Look for ownership, repair, and prevention."
+        },
+        {
+          "type": "input",
+          "prompt": "Which four-letter acronym names the Situation-Task-Action-Result structure?",
+          "answers": ["STAR", "star"],
+          "explain": "STAR keeps answers from rambling: context, your job, your actions, the outcome — in that fixed order.",
+          "hint": "It is also what sits in the night sky."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the parts of a good answer to 'a time you had to prioritise under pressure' in order",
+          "items": [
+            "Set the scene: the day, the volume, what was at stake",
+            "State what you were personally responsible for",
+            "Explain the rule you used to choose what came first",
+            "Give the outcome, with a number if you have one"
+          ],
+          "explain": "Situation, task, action — including the decision rule you used — then result. STAR applied to prioritisation.",
+          "hint": "Context first, your thinking second, the score at the end."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In a story about a disagreement with a coworker, which is the BEST ending?",
+          "options": [
+            "I proved my way was right and we shipped my fix.",
+            "We compared evidence, tested both approaches on staging, and shipped theirs — it handled retries better, and I said so out loud afterwards.",
+            "We argued for a while and the manager decided for us.",
+            "We avoided the topic and never discussed it again."
+          ],
+          "answer": 1,
+          "explain": "It credits the other person, shows you work from evidence rather than ego, and ends with the working relationship intact.",
+          "hint": "Who comes out of this answer looking like a good teammate?"
+        }
+      ]
+    },
+    {
+      "title": "The Take-Home and the End",
+      "body": "Take-homes are usually one of two things: a **case study** (here is a scenario — diagnose it and write your plan) or a **ticket-writing exercise** (here is a messy user message — write your reply). Both are graded on clarity, not cleverness.\n\nFor a ticket reply, use the shape you already know: acknowledge, show ownership, summarise, then give a next step with a time. Two or three short paragraphs beat one wall of text, and one focused question beats three.\n\n```\nHi Dan,\n\nThanks for the report - I'm looking into SUP-318.\n\nThe March report totals are higher than your spreadsheet\nbecause duplicate order IDs are being counted; I can see\n14 repeats.\n\nI'll confirm a fix time by 15:00 today.\n\n- Aisha, Application Support\n```\n\nThen flip the table: **the questions you ask them** are half the interview. Good ones probe the day to day — how do escalations reach the engineering team, what does the first 90 days look like, how many tickets does an engineer handle in a week? Weak ones are already answered on the careers page.\n\nFollow up with a short note within 24 hours: thank them, add the one thing you forgot to say, restate your interest. Then wait — one follow-up, not four.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST question to ask at the end of an Application Support interview?",
+          "options": [
+            "How do escalations get from support to the engineering team?",
+            "What does your company do?",
+            "How many holiday days do employees get?",
+            "Do you enjoy working here?"
+          ],
+          "answer": 0,
+          "explain": "It asks about the day-to-day mechanics of the role — information the careers page cannot give you — and it signals you already imagine doing the job.",
+          "hint": "Pick the question their website cannot answer for you."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which is the BEST structure for a take-home ticket reply?",
+          "options": [
+            "Apologise several times and promise it will never happen again",
+            "Acknowledge the issue, show ownership, summarise what you understand, and give a next step with a time",
+            "Paste the full technical log so the customer can see the detail",
+            "Ask the customer to list every piece of information they can think of"
+          ],
+          "answer": 1,
+          "explain": "The four-part shape works in a take-home exactly as it works on a live ticket: proof you read it, proof you own it, a shared understanding, and a time to come back to.",
+          "hint": "Which one would you happily send to a real customer?"
+        },
+        {
+          "type": "input",
+          "prompt": "In the four-part ticket reply — acknowledge, show ownership, summarise — what is the fourth part?",
+          "answers": ["next step", "set expectations", "expectations"],
+          "explain": "A next step with a time is what stops the user from chasing you — and it is the part most candidates leave out under exam pressure.",
+          "hint": "Tell them when they will hear from you again."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps after a final interview in the correct order",
+          "items": [
+            "Send a short thank-you note within 24 hours",
+            "Include the one point you forgot to make, and restate your interest",
+            "Wait until the decision date they gave you",
+            "Send one polite follow-up if that date passes"
+          ],
+          "explain": "One good note within a day, then patience, then a single chase — silence after that reads as pressure rather than interest.",
+          "hint": "Fast, then quiet, then once."
+        }
+      ]
+    }
+  ]
+}

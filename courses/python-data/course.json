@@ -1,0 +1,477 @@
+{
+  "id": "python-data",
+  "title": "Python for Data",
+  "subtitle": "Weeks 11-14: script, transform and load data",
+  "color": "#ffd166",
+  "order": 18,
+  "description": "From your first script to a working ETL job: Python basics and virtual environments, control flow and comprehensions, functions and error handling, files with pathlib/CSV/JSON, pandas dataframes, groupby and merges, and talking to a database with parameterized queries.",
+  "lessons": [
+    {
+      "title": "Python and the Virtual Environment",
+      "body": "Before writing data code, build a place to put it. Python ships with `venv`, which creates an isolated folder holding its own interpreter settings and packages, so one project's upgrades cannot break another's.\n\n```bash\npython3 --version          # check what you have\nmkdir sales-etl && cd sales-etl\npython3 -m venv .venv      # create the environment\nsource .venv/bin/activate  # activate it (Linux/macOS)\n# .venv\\Scripts\\activate   # Windows\n\npip install pandas         # install into the environment\npython -c \"import pandas; print(pandas.__version__)\"\ndeactivate                 # leave it\n```\n\nWhile the environment is active your prompt is prefixed with its name, and `python` and `pip` point inside it. That is the whole point: what you install stays here.\n\nA small project keeps things apart:\n\n```\nsales-etl/\n  .venv/            the environment (never committed)\n  requirements.txt  pip install -r requirements.txt\n  etl.py            the script\n  data/             input and output files\n```\n\nRecord dependencies with `pip freeze > requirements.txt` so a colleague can rebuild an identical environment on another machine. Then run the script:\n\n```bash\npython etl.py\n```\n\nIf you see `ModuleNotFoundError`, you are almost certainly in the wrong environment - activate `.venv` and try again.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why use a virtual environment for a data project?",
+          "options": [
+            "To isolate that project's dependencies from other projects",
+            "To make Python run faster",
+            "To avoid writing any code",
+            "To connect the script to the internet"
+          ],
+          "answer": 0,
+          "explain": "A virtual environment keeps each project's packages separate, so upgrading a library for one project cannot break another.",
+          "hint": "It is about isolation, not speed."
+        },
+        {
+          "type": "input",
+          "prompt": "Which command creates a virtual environment in a folder called .venv using only the standard library?",
+          "answers": [
+            "python3 -m venv .venv",
+            "python -m venv .venv",
+            "python3 -m venv"
+          ],
+          "hint": "It is the venv module run with -m.",
+          "explain": "python3 -m venv .venv runs the built-in venv module and creates the .venv folder."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the project setup steps in order",
+          "items": [
+            "Create the project folder",
+            "Create the virtual environment",
+            "Activate the environment",
+            "Install dependencies with pip",
+            "Run the script"
+          ],
+          "explain": "Create, then build the environment, activate it so pip installs in the right place, install, and finally run.",
+          "hint": "You must activate before you install."
+        },
+        {
+          "type": "input",
+          "prompt": "Which file records exact dependency versions so the environment can be rebuilt elsewhere?",
+          "answers": [
+            "requirements.txt",
+            "requirements"
+          ],
+          "hint": "It is written by pip freeze.",
+          "explain": "requirements.txt lists the exact versions; a colleague runs pip install -r requirements.txt to reproduce them."
+        }
+      ]
+    },
+    {
+      "title": "Variables, Types and f-strings",
+      "body": "Python infers a value's type from what you assign, so you rarely write the type yourself.\n\n```python\nname = \"Ada\"        # str\ntickets = 42        # int\nrate = 0.875        # float\nresolved = True     # bool\nnote = None         # None: no value yet\n\nprint(type(tickets))  # <class 'int'>\n```\n\n`type()` answers the \"what is this?\" question while debugging. The types you meet most in data work are `str` (text), `int` (whole numbers), `float` (decimals), `bool` (`True`/`False`) and `None` (absence). Convert deliberately with `int(\"7\")`, `float(\"1.5\")` and `str(42)`.\n\n**f-strings** format values into text. Put an `f` before the quote and name variables inside braces:\n\n```python\nfirst = \"Ada\"\nlast = \"Lovelace\"\nfull = f\"{first} {last}\"\nprint(f\"{full} closed {tickets} tickets, {rate:.1%} of them on time\")\n```\n\nThe `:.1%` turns `0.875` into `87.5%`; `:.2f` rounds a float to two decimal places. You can even run an expression inside the braces: `f\"{tickets + 1}\"`.\n\n`print()` writes a line; `input()` reads one and **always returns a string**, so convert it before doing arithmetic:\n\n```python\nage = int(input(\"How many tickets? \"))\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `type(3.5)` return?",
+          "options": [
+            "<class 'float'>",
+            "<class 'int'>",
+            "<class 'str'>",
+            "<class 'decimal'>"
+          ],
+          "answer": 0,
+          "explain": "A number written with a decimal point is a float. int(3.5) would be 3, but 3.5 itself is a float.",
+          "hint": "The decimal point decides int versus float."
+        },
+        {
+          "type": "input",
+          "prompt": "Which function converts the text value \"12\" into the integer 12?",
+          "answers": [
+            "int",
+            "int()"
+          ],
+          "hint": "Three letters, the opposite of str().",
+          "explain": "int(\"12\") returns the integer 12; float(\"12\") would return 12.0."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does the f-string `f\"{rate:.1%}\"` produce when `rate = 0.5`?",
+          "options": [
+            "50.0%",
+            "0.5%",
+            "50%",
+            "5.0%"
+          ],
+          "answer": 0,
+          "explain": "The format spec .1% multiplies by 100, adds a percent sign and keeps one decimal place, so 0.5 becomes 50.0%.",
+          "hint": "The % format multiplies by 100."
+        },
+        {
+          "type": "md",
+          "prompt": "Write one line that reads a ticket count using `input()` and stores it as an integer in a variable called `count`.",
+          "patterns": [
+            {
+              "re": "\\bcount\\s*=",
+              "m": "assign to a variable called count"
+            },
+            {
+              "re": "int\\s*\\(",
+              "m": "convert the input with int()"
+            },
+            {
+              "re": "input\\s*\\(",
+              "m": "read the value with input()"
+            }
+          ],
+          "solution": "count = int(input(\"How many tickets? \"))",
+          "explain": "input() returns a string, so int(...) around it turns the text into a number before it is stored in count.",
+          "hint": "Wrap input(...) in int(...)."
+        }
+      ]
+    },
+    {
+      "title": "Control Flow, Loops and Comprehensions",
+      "body": "`if` chooses a branch. `elif` chains further tests and `else` catches the rest; the indentation defines the block.\n\n```python\nstatus = \"open\"\nif status == \"open\":\n    print(\"pick it up\")\nelif status == \"pending\":\n    print(\"chase the customer\")\nelse:\n    print(\"leave it\")\n```\n\n`for` iterates over any collection. When you also need the position, `enumerate` gives index and value together, and `zip` walks two lists in step:\n\n```python\nagents = [\"Priya\", \"Marco\", \"Chen\"]\nfor i, name in enumerate(agents, start=1):\n    print(i, name)\n\nlevels = [\"L1\", \"L1\", \"L2\"]\nfor name, level in zip(agents, levels):\n    print(f\"{name}: {level}\")\n```\n\n`while` repeats until a condition turns false - use it when you do not know the number of rounds in advance, and make sure something changes inside or it loops forever.\n\n**Comprehensions** build a new list or dictionary from an existing one in a single expression:\n\n```python\nopen_agents = [a for a in agents if a != \"Chen\"]\nlengths = {a: len(a) for a in agents}\n```\n\nRead `[a for a in agents if ...]` as \"the value `a`, for each `a` in `agents`, when the condition holds\". Comprehensions are used constantly to transform records, and they are usually clearer than a loop that appends.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which loop is best when you must repeat until a condition becomes false and you do not know in advance how many times?",
+          "options": [
+            "while",
+            "for",
+            "a list comprehension",
+            "if"
+          ],
+          "answer": 0,
+          "explain": "while keeps going as long as its condition is true, which suits an unknown number of rounds. for is for iterating a known collection.",
+          "hint": "It repeats while a test stays true."
+        },
+        {
+          "type": "input",
+          "prompt": "Which built-in gives you both the index and the value while looping? (one word)",
+          "answers": [
+            "enumerate"
+          ],
+          "hint": "It is ten letters and pairs with start=1.",
+          "explain": "enumerate(collection) yields (index, value) pairs, so you do not have to track a counter by hand."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `[n * 2 for n in [1, 2, 3] if n != 2]` produce?",
+          "options": [
+            "[2, 6]",
+            "[2, 4, 6]",
+            "[1, 3]",
+            "[2]"
+          ],
+          "answer": 0,
+          "explain": "The condition skips n == 2, then each remaining n is doubled: 1 becomes 2 and 3 becomes 6.",
+          "hint": "The if filters the list before doubling."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps a for loop performs each round in order",
+          "items": [
+            "Take the next item from the collection",
+            "Bind it to the loop variable",
+            "Run the indented body",
+            "Move to the next item"
+          ],
+          "explain": "Each round takes the next item, names it, runs the body, and then advances - stopping when the collection is exhausted.",
+          "hint": "Take, bind, run, advance."
+        }
+      ]
+    },
+    {
+      "title": "Functions, Errors and Modules",
+      "body": "A function names a block of work so you can call it more than once. Arguments carry data in, `return` sends a result out - and a function with no `return` quietly returns `None`.\n\n```python\ndef clean_name(raw):\n    \"\"\"Trim spaces and title-case a name.\"\"\"\n    if raw is None:\n        return \"\"\n    return raw.strip().title()\n\nclean_name(\"  ada lovelace \")  # 'Ada Lovelace'\n```\n\nGive default values to optional arguments: `def greet(name, punct=\"!\"):`. Keep functions small and named after what they do.\n\nErrors are normal in data work - a file is missing, a field is empty, a value is not a number. Catch them instead of crashing:\n\n```python\ntry:\n    count = int(value)\nexcept ValueError:\n    count = 0\nfinally:\n    print(\"attempted a conversion\")\n```\n\n`try` runs the risky line, `except` handles a named error, and `finally` always runs, which suits cleanup. Catch a **specific** exception; a bare `except:` hides real bugs.\n\nAny `.py` file is a module you can import:\n\n```python\nimport math\nfrom pathlib import Path\n\nmath.sqrt(16)\n```\n\nThe block under `if __name__ == \"__main__\":` runs only when the file is executed directly, not when it is imported - the standard way to give a script an entry point.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does a function return if it reaches the end without a `return` statement?",
+          "options": [
+            "None",
+            "0",
+            "an empty string",
+            "it raises an error"
+          ],
+          "answer": 0,
+          "explain": "A function with no return, or a bare return, gives back None. That is why forgetting return is a common cause of unexpected None values.",
+          "hint": "Think about the value that means 'no value'."
+        },
+        {
+          "type": "input",
+          "prompt": "Which keyword sends a value back from a function?",
+          "answers": [
+            "return"
+          ],
+          "hint": "Six letters.",
+          "explain": "return ends the function and hands the value back to the caller, which can assign it or use it directly."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the clauses of error handling in the order Python runs them",
+          "items": [
+            "try: run the risky code",
+            "except ValueError: handle that specific error",
+            "finally: run cleanup that must always happen"
+          ],
+          "explain": "Python runs try first; except only if the matching error is raised; finally runs in every case.",
+          "hint": "finally runs last regardless of what happened."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a small function `ticket_minutes(count)` that returns `count` multiplied by 5. It must use `def` and `return`.",
+          "patterns": [
+            {
+              "re": "def\\s+ticket_minutes",
+              "m": "define a function called ticket_minutes"
+            },
+            {
+              "re": "return\\b",
+              "m": "return the result"
+            },
+            {
+              "re": "(count\\s*\\*\\s*5|5\\s*\\*\\s*count)",
+              "m": "multiply count by 5"
+            }
+          ],
+          "solution": "def ticket_minutes(count):\n    return count * 5",
+          "explain": "def names the function and its argument, and return hands back count * 5. Without return the caller would receive None.",
+          "hint": "def ticket_minutes(count): return count * 5, on indented lines."
+        }
+      ]
+    },
+    {
+      "title": "Files with pathlib, CSV and JSON",
+      "body": "`pathlib.Path` is the modern way to handle paths: it behaves the same on any operating system and gives you useful methods.\n\n```python\nfrom pathlib import Path\n\ndata = Path(\"data\")\ndata.mkdir(exist_ok=True)          # create it only if missing\nreport = data / \"report.csv\"       # join paths with /\nreport.exists()\ntext = report.read_text()          # whole file as one string\n```\n\nAlways open files inside a `with` block, a **context manager**. It closes the file for you even if an error interrupts the code:\n\n```python\nwith report.open(\"w\", encoding=\"utf-8\") as f:\n    f.write(\"id,status\\n1,open\\n\")\n```\n\n**CSV** files are rows of comma-separated values. The `csv` module reads and writes them without you splitting strings by hand:\n\n```python\nimport csv\n\nwith open(\"data/tickets.csv\", newline=\"\", encoding=\"utf-8\") as f:\n    reader = csv.DictReader(f)      # header row becomes the keys\n    for row in reader:\n        print(row[\"id\"], row[\"status\"])\n```\n\n`csv.DictReader` turns each row into a dictionary keyed by the header, far easier to read than positional indexes. `csv.writer` and `csv.DictWriter` do the reverse.\n\n**JSON** stores nested data as text. `json.load` reads a file straight into Python dictionaries and lists, and `json.dump` writes them back:\n\n```python\nimport json\n\nconfig = json.loads('{\"retries\": 3, \"hosts\": [\"a\", \"b\"]}')\nconfig[\"hosts\"][0]          # 'a'\njson.dumps(config, indent=2)\n```\n\nThe `s` in `loads`/`dumps` means \"string\"; `load`/`dump` take a file object.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why use `with open(...) as f:` instead of `f = open(...)`?",
+          "options": [
+            "It closes the file automatically, even if an error occurs",
+            "It reads the file faster",
+            "It compresses the file on disk",
+            "It is the only syntax Python accepts"
+          ],
+          "answer": 0,
+          "explain": "A context manager guarantees the file is closed when the block ends, including when an exception is raised, preventing leaks and corruption.",
+          "hint": "Think about what happens when the code raises an error."
+        },
+        {
+          "type": "input",
+          "prompt": "Which csv class turns each row into a dictionary keyed by the header?",
+          "answers": [
+            "dictreader",
+            "csv.dictreader",
+            "dictreader()"
+          ],
+          "hint": "Its name is Dict plus Reader.",
+          "explain": "csv.DictReader uses the first row as keys, so you access fields by name like row[\"status\"]."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `json.load(file_object)` return?",
+          "options": [
+            "Python dictionaries and lists built from the JSON text",
+            "A string of raw JSON",
+            "A csv reader",
+            "An open file handle"
+          ],
+          "answer": 0,
+          "explain": "json.load parses the file's JSON into native Python objects: objects become dicts, arrays become lists.",
+          "hint": "JSON objects map to Python dicts."
+        },
+        {
+          "type": "md",
+          "prompt": "Write the line that opens `data/tickets.csv` for reading as a context manager, binding the file to the variable `f`.",
+          "patterns": [
+            {
+              "re": "with\\s+open\\s*\\(",
+              "m": "use a with open(...) context manager"
+            },
+            {
+              "re": "tickets\\.csv",
+              "m": "open data/tickets.csv"
+            },
+            {
+              "re": "as\\s+f\\b",
+              "m": "bind the file to the variable f"
+            }
+          ],
+          "solution": "with open(\"data/tickets.csv\", newline=\"\", encoding=\"utf-8\") as f:",
+          "explain": "with open(...) as f: opens the file and guarantees it is closed at the end of the block; newline=\"\" and encoding are good practice for CSV.",
+          "hint": "with open(\"data/tickets.csv\", ...) as f:"
+        }
+      ]
+    },
+    {
+      "title": "pandas DataFrames",
+      "body": "pandas gives you the DataFrame: a table with named columns and an index, held in memory.\n\n```python\nimport pandas as pd\n\ndf = pd.read_csv(\"data/tickets.csv\")\ndf.head()\n```\n\n`read_csv` loads a file; `read_sql` loads the result of a query once you have a database connection. Select columns with square brackets and filter rows with a boolean **mask**:\n\n```python\ndf[\"status\"]                       # one column (a Series)\ndf[[\"id\", \"status\"]]               # several columns\nopen_df = df[df[\"status\"] == \"Open\"]\n```\n\nThe mask `df[\"status\"] == \"Open\"` is a column of `True`/`False`; putting it inside the brackets keeps the `True` rows. Combine masks with `&` (and), `|` (or) and `~` (not), wrapping each test in parentheses.\n\nAssign a new column by naming it on the left. Operations apply to the whole column at once, which is called a **vectorised** operation:\n\n```python\ndf[\"hours\"] = df[\"minutes\"] / 60\ndf = df.sort_values(\"hours\", ascending=False)\n```\n\nMissing data appears as `NaN`. Fill it, drop it, or replace it deliberately:\n\n```python\ndf[\"agent\"].fillna(\"unassigned\")\ndf = df.dropna(subset=[\"id\"])\n```\n\n`df.info()` and `df.describe()` are the first two calls to run on any new file - they tell you the columns, types and ranges before you trust the numbers.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `df[df[\"status\"] == \"Open\"]` do?",
+          "options": [
+            "Keeps only the rows where status is Open",
+            "Keeps only the status column",
+            "Raises an error",
+            "Sorts the rows by status"
+          ],
+          "answer": 0,
+          "explain": "The comparison builds a boolean mask and the outer brackets keep the rows where the mask is True.",
+          "hint": "The inner expression is a column of True and False."
+        },
+        {
+          "type": "input",
+          "prompt": "Which pandas function reads a CSV file into a DataFrame? (name only)",
+          "answers": [
+            "read_csv",
+            "pd.read_csv",
+            "readcsv"
+          ],
+          "hint": "It starts with read_.",
+          "explain": "pd.read_csv(\"file.csv\") parses the file and returns a DataFrame."
+        },
+        {
+          "type": "mcq",
+          "prompt": "How do you keep rows where minutes is over 60 AND priority is P1?",
+          "options": [
+            "df[(df[\"minutes\"] > 60) & (df[\"priority\"] == \"P1\")]",
+            "df[df[\"minutes\"] > 60 and df[\"priority\"] == \"P1\"]",
+            "df[df[\"minutes\"] > 60 & df[\"priority\"] == \"P1\"]",
+            "df[\"minutes\" > 60 & \"priority\" == \"P1\"]"
+          ],
+          "answer": 0,
+          "explain": "pandas needs the element-wise & operator with each condition parenthesised; Python's and cannot combine whole columns.",
+          "hint": "Use & not and, and wrap each test in parentheses."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of a simple pandas transformation in order",
+          "items": [
+            "Read the file with read_csv",
+            "Filter rows with a boolean mask",
+            "Add a new computed column",
+            "Sort the rows with sort_values"
+          ],
+          "explain": "Load first, then narrow, then derive new values, then order them - the typical shape of a dataframe script.",
+          "hint": "You cannot filter a dataframe you have not loaded."
+        }
+      ]
+    },
+    {
+      "title": "pandas groupby, merge and pivot",
+      "body": "Three operations do most of the analytical work.\n\n**groupby** splits rows into groups and reduces each group with an aggregate:\n\n```python\ndf.groupby(\"agent\")[\"minutes\"].mean()\ndf.groupby(\"priority\").agg(\n    tickets=(\"id\", \"count\"),\n    total_minutes=(\"minutes\", \"sum\"),\n)\n```\n\n`.agg()` lets you name the output columns and apply different functions to different columns - a summary table in one step.\n\n**merge** joins two DataFrames on a key column, the pandas version of a SQL `JOIN`:\n\n```python\ntickets = pd.read_csv(\"tickets.csv\")\ncustomers = pd.read_csv(\"customers.csv\")\ncombined = tickets.merge(customers, left_on=\"customer_id\",\n                         right_on=\"id\", how=\"left\")\n```\n\n`how` chooses which rows survive: `\"inner\"` (both sides), `\"left\"` (all of the first), `\"right\"` (all of the second) and `\"outer\"` (everything). A left join keeps every ticket even when no customer matches, filling the gap with `NaN`.\n\n**pivot_table** reshapes long data into a grid:\n\n```python\ndf.pivot_table(\n    index=\"agent\", columns=\"priority\", values=\"minutes\",\n    aggfunc=\"mean\",\n)\n```\n\nNow each agent is a row, each priority a column, and each cell is the average time. Always check the row count after a merge - a silently dropped join is the most common cause of a sudden shrink in data.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which `how` value for merge keeps every row of the first DataFrame?",
+          "options": [
+            "left",
+            "inner",
+            "right",
+            "outer"
+          ],
+          "answer": 0,
+          "explain": "A left join keeps all rows from the left frame, matching where it can and filling unmatched columns with NaN.",
+          "hint": "It is named after the first side."
+        },
+        {
+          "type": "input",
+          "prompt": "Which method splits rows into groups so you can aggregate each one? (one word)",
+          "answers": [
+            "groupby",
+            "group_by"
+          ],
+          "hint": "It is seven letters and often followed by an aggregate.",
+          "explain": "df.groupby(\"agent\") returns grouped data that you then reduce with mean(), sum() or agg()."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does `df.pivot_table(index='agent', columns='priority', values='minutes', aggfunc='mean')` produce?",
+          "options": [
+            "A grid of agents down the rows, priorities across the columns, and average minutes in the cells",
+            "A sorted list of every ticket",
+            "The original DataFrame unchanged",
+            "A merged DataFrame"
+          ],
+          "answer": 0,
+          "explain": "pivot_table groups by the index, spreads one column into headers, and fills cells with the aggregate - here the mean.",
+          "hint": "index gives the rows, columns give the headers."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of a small analysis in order",
+          "items": [
+            "Read tickets and customers with read_csv",
+            "Merge the two on the customer key",
+            "Group by agent and aggregate minutes",
+            "Pivot to compare priorities side by side"
+          ],
+          "explain": "Load the sources, join them into one frame, summarise per group, then reshape for comparison.",
+          "hint": "You must join before you can group by a merged field."
+        }
+      ]
+    },
+    {
+      "title": "Talking to a Database",
+      "body": "Python talks to PostgreSQL through a driver such as `psycopg2`, or through SQLAlchemy, which sits on top and can also provide pandas `read_sql`.\n\n```python\nimport psycopg2\nimport pandas as pd\n\nconn = psycopg2.connect(\n    host=\"localhost\", dbname=\"support\",\n    user=\"analyst\", password=\"secret\",\n)\n```\n\nThe cardinal rule: **never build SQL by pasting strings**. String formatting lets a value break out of its quotes and run its own SQL - that is **SQL injection**.\n\n```python\n# DANGEROUS - never do this\ncur.execute(f\"SELECT * FROM tickets WHERE status = '{status}'\")\n\n# SAFE - let the driver substitute the value\ncur.execute(\"SELECT * FROM tickets WHERE status = %s\", (status,))\n```\n\nWith `psycopg2` the placeholder is `%s`; with SQLAlchemy it is usually `:name`. The driver sends the query and the values separately, so a value can never be read as SQL:\n\n```python\nfrom sqlalchemy import text\nconn.execute(text(\"SELECT * FROM tickets WHERE priority = :p\"), {\"p\": \"P1\"})\n```\n\nA minimal extract-transform-load job reads with pandas, cleans, and writes back:\n\n```python\ndf = pd.read_sql(\"SELECT * FROM tickets\", conn)\ndf[\"minutes\"] = df[\"minutes\"].fillna(0)\n```\n\nThe same `%s` rule applies to every `INSERT`, `UPDATE` and `DELETE`. Placeholders are not only about safety; they also let the database reuse a prepared plan.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why is `cur.execute(f\"SELECT * FROM tickets WHERE status = '{status}'\")` dangerous?",
+          "options": [
+            "User input can escape the quotes and inject its own SQL",
+            "f-strings do not work with SQL",
+            "It returns too many rows",
+            "It is slower than a join"
+          ],
+          "answer": 0,
+          "explain": "Pasting a value into the SQL text lets a crafted value close the quote and append further statements. Parameterisation sends code and data separately, which prevents it.",
+          "hint": "Think about what a value containing a quote could do."
+        },
+        {
+          "type": "input",
+          "prompt": "Which placeholder style does psycopg2 use for a parameter?",
+          "answers": [
+            "%s"
+          ],
+          "hint": "Two characters: a percent sign and a letter.",
+          "explain": "psycopg2 substitutes %s with the values from the tuple passed as the second argument to execute()."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the stages of a minimal ETL job in order",
+          "items": [
+            "Extract: read the source with read_sql",
+            "Transform: clean and compute columns with pandas",
+            "Load: write the result back using placeholders",
+            "Verify: check the row counts match what you expect"
+          ],
+          "explain": "Extract, transform, load - then verify. The order of the first three gives ETL its name.",
+          "hint": "The name ETL is the order."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a parameterised psycopg2 call that selects tickets whose status equals the variable `status`, using the correct placeholder style.",
+          "patterns": [
+            {
+              "re": "execute\\s*\\(",
+              "m": "call cur.execute(...)"
+            },
+            {
+              "re": "select\\b",
+              "m": "write a SELECT"
+            },
+            {
+              "re": "%s",
+              "m": "use the %s placeholder"
+            },
+            {
+              "re": "where\\s+status\\b",
+              "m": "filter on the status column"
+            }
+          ],
+          "solution": "cur.execute(\"SELECT * FROM tickets WHERE status = %s\", (status,))",
+          "explain": "The %s placeholder plus the (status,) tuple lets psycopg2 send the query and the value separately, so the value can never be read as SQL.",
+          "hint": "cur.execute(\"SELECT ... WHERE status = %s\", (status,))"
+        }
+      ]
+    }
+  ]
+}

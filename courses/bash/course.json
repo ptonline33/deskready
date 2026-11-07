@@ -1,0 +1,337 @@
+{
+  "id": "bash",
+  "title": "Bash Scripting & Automation",
+  "subtitle": "Week 3: turn commands into reliable scripts",
+  "color": "#f5a623",
+  "order": 12,
+  "description": "Write Bash scripts that automate real work: variables and quoting, arguments and exit codes, conditionals and loops, functions and arrays, safe scripting with set -euo pipefail and traps, and a full backup-script walkthrough.",
+  "lessons": [
+    {
+      "title": "Your First Script",
+      "body": "A shell script is just a text file of commands that Bash runs for you in order. The very first line is the **shebang**, which tells the kernel which interpreter to use:\n\n```bash\n#!/usr/bin/env bash\n```\n\n`/usr/bin/env bash` is preferred over a hard-coded `/bin/bash` because it finds whichever `bash` is first on the `PATH`. After writing the file, make it executable and run it:\n\n```bash\nchmod +x hello.sh    # add execute for the owner\n./hello.sh           # ./ means \"this file, in the current directory\"\nbash hello.sh        # or run it with bash explicitly (no +x needed)\n```\n\nRunning `./script.sh` without execute permission gives \"Permission denied\" — Bash refuses to execute a file not marked executable. The current directory is not on your `PATH` for security reasons, so you must say `./`.\n\n**Variables** hold strings. Assign with no spaces around `=` and read with `$`:\n\n```bash\nname=\"Ada\"\necho \"Hello, $name\"      # double quotes expand the variable\necho 'Hello, $name'      # single quotes print the literal text\n```\n\nThat difference is the single most important habit in Bash. **Always double-quote variables** unless you have a reason not to: `\"$name\"`, not `$name`. Unquoted variables are split on spaces and glob-expanded, so a filename like `My Report.txt` becomes two arguments. Use `$(...)` to capture a command's output, and `echo` or `printf` to print:\n\n```bash\ntoday=$(date +%F)\necho \"Backup for $today starting\"\n```\n\n`printf` is the safer choice when the output must be exact, since `echo` can reinterpret backslashes.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the purpose of the `#!/usr/bin/env bash` line at the top of a script?",
+          "options": [
+            "It tells the kernel which interpreter should run the file",
+            "It is a comment with no effect",
+            "It installs bash on the machine",
+            "It sets the script's permissions"
+          ],
+          "answer": 0,
+          "explain": "The shebang names the interpreter; env resolves bash from PATH so the script is portable across machines.",
+          "hint": "It is called the shebang and starts with #!."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that makes `deploy.sh` executable so you can run it as `./deploy.sh`",
+          "answers": [
+            "chmod +x deploy.sh",
+            "chmod u+x deploy.sh"
+          ],
+          "hint": "One chmod and one flag to add execute.",
+          "explain": "chmod +x adds the execute bit; without it the shell answers 'Permission denied'."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Given `name=Ada`, what does `echo '$name'` (single quotes) print?",
+          "options": [
+            "$name",
+            "Ada",
+            "Ada's name",
+            "nothing"
+          ],
+          "answer": 0,
+          "explain": "Single quotes suppress expansion, so the literal text $name is printed. Double quotes would print Ada.",
+          "hint": "Single quotes mean 'take this literally'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the line that captures the output of `date +%F` into a variable called `today`",
+          "answers": [
+            "today=$(date +%F)",
+            "today=`date +%F`"
+          ],
+          "hint": "Use command substitution: $(...) around the command.",
+          "explain": "today=$(date +%F) runs date and stores its output, giving a clean YYYY-MM-DD timestamp in a variable."
+        }
+      ]
+    },
+    {
+      "title": "Arguments, Exit Codes and Conditionals",
+      "body": "Scripts become useful when they take input. Inside a script, **positional parameters** hold the arguments: `$1`, `$2` … are the individual arguments, `$@` is all of them as separate words, `$#` is the count, and `$0` is the script's own name.\n\n```bash\n#!/usr/bin/env bash\necho \"Running $0 with $# argument(s)\"\nfor arg in \"$@\"; do\n  echo \"  - $arg\"\ndone\n```\n\nQuote `\"$@\"` so each argument survives intact even when it contains spaces. Test before you use: `if [ \"$#\" -lt 1 ]; then echo \"usage: $0 <file>\"; exit 1; fi`.\n\nEvery command returns an **exit code**: `0` means success and any non-zero value means failure. The shell keeps the last one in `$?`. This is how scripts make decisions and how cron or a CI pipeline knows they failed, so **exit deliberately** with `exit 0` or `exit 1`.\n\nConditionals use `if` with either the old `test`/`[ ]` builtin or the modern `[[ ]]` (Bash-only, safer — it does not word-split or glob inside):\n\n```bash\nif [[ \"$user\" == \"root\" ]]; then\n  echo \"installing system-wide\"\nelif [[ -d /opt/app ]]; then\n  echo \"app directory exists\"\nelse\n  echo \"nothing to do\"\nfi\n```\n\nFile tests are used constantly: `-e` exists, `-f` is a regular file, `-d` is a directory, `-r`/`-w`/`-x` are readable/writable/executable, and `-s` means non-empty. Numbers compare with `-eq -ne -lt -le -gt -ge` inside brackets.\n\n```bash\n[[ -f \"$config\" ]] || { echo \"missing $config\" >&2; exit 1; }\n```\n\nThat `||` line runs the block only when the test fails — a compact guard at the top of a script.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which variable holds the number of arguments passed to a script?",
+          "options": [
+            "$#",
+            "$@",
+            "$?",
+            "$0"
+          ],
+          "answer": 0,
+          "explain": "$# is the argument count; $@ is the list, $? is the last exit code and $0 is the script name.",
+          "hint": "The hash sign is the count."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does an exit code of `0` conventionally mean?",
+          "options": [
+            "Success",
+            "Failure",
+            "The script was not run",
+            "Missing arguments"
+          ],
+          "answer": 0,
+          "explain": "Zero means success; any non-zero value signals a specific failure that callers and cron can act on.",
+          "hint": "Think of a test that passes."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the test (using `[[ ]]`) that is true when `$file` is a regular file, suitable for an `if` or a `||` guard",
+          "answers": [
+            "[[ -f $file ]]",
+            "[[ -f \"$file\" ]]",
+            "[ -f \"$file\" ]"
+          ],
+          "hint": "The -f test means 'is a regular file'.",
+          "explain": "[[ -f $file ]] is true only when the path exists and is a regular file, so you never operate on nothing."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the argument-handling steps of a script in the order they should run",
+          "items": [
+            "Check that at least one argument was given: if [[ $# -lt 1 ]]",
+            "Print a usage message and exit 1 when it is missing",
+            "Read the first argument into a variable, e.g. file=$1",
+            "Validate it with [[ -f \"$file\" ]] before using it"
+          ],
+          "explain": "Guard on the count, fail loudly, bind the argument, then validate it — the shape of a robust script's first ten lines.",
+          "hint": "Never use an argument you have not first checked exists."
+        }
+      ]
+    },
+    {
+      "title": "Loops and Functions",
+      "body": "Loops repeat work. `for` walks over a list — often the arguments or a glob — and `while` repeats as long as a test is true. `until` is the mirror image, repeating while the test is *false*.\n\n```bash\nfor host in web-01 web-02 db-01; do\n  echo \"pinging $host\"\ndone\n\nfor file in *.log; do\n  gzip \"$file\"\ndone\n```\n\n`while` is the natural fit for reading input or retrying. The canonical idiom for reading a file a line at a time uses `read` with `-r` (so backslashes are not eaten):\n\n```bash\nwhile IFS= read -r line; do\n  echo \"line: $line\"\ndone < servers.txt\n```\n\n`IFS=` stops `read` from stripping leading and trailing whitespace. To loop forever use `while true; do ... done`; `break` exits a loop early and `continue` jumps to the next iteration.\n\n`case` is a tidy multi-way branch, clearer than a long `if/elif` chain when matching one value against patterns:\n\n```bash\ncase \"$1\" in\n  start)  systemctl start app ;;\n  stop)   systemctl stop app ;;\n  status) systemctl status app ;;\n  *)      echo \"usage: $0 {start|stop|status}\" >&2; exit 2 ;;\nesac\n```\n\n**Functions** package reusable blocks. Define with `name() { ... }` and call like any command. Arguments arrive as `$1`, `$@` inside the function, and `return` sets its exit status; `local` keeps a variable from leaking out:\n\n```bash\nlog() {\n  local level=\"$1\"; shift\n  printf '%s [%s] %s\\n' \"$(date +%T)\" \"$level\" \"$*\"\n}\nlog INFO \"backup started\"\n```\n\n`shift` moves the arguments down one, so `\"$*\"` joins the remaining words into the message.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why do we write `while IFS= read -r line` when reading a file line by line?",
+          "options": [
+            "IFS= preserves whitespace and -r stops backslashes being interpreted",
+            "It makes the loop run faster",
+            "It edits the file in place as it reads",
+            "It sorts the lines first"
+          ],
+          "answer": 0,
+          "explain": "IFS= keeps leading/trailing whitespace and -r keeps backslashes literal, so each line arrives exactly as written.",
+          "hint": "One option protects whitespace and backslashes."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the opening line of a `for` loop (loop variable `host`) that iterates over `web-01`, `web-02` and `db-01`",
+          "answers": [
+            "for host in web-01 web-02 db-01; do",
+            "for host in web-01 web-02 db-01 do"
+          ],
+          "hint": "for VAR in list; do",
+          "explain": "for host in web-01 web-02 db-01; do starts the loop; the body goes before the matching done."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In a `case` statement, which pattern matches any value not caught by the earlier patterns?",
+          "options": [
+            "*)",
+            ";;",
+            "esac",
+            "|"
+          ],
+          "answer": 0,
+          "explain": "*) is the catch-all final branch; ;; terminates each branch and esac ends the statement.",
+          "hint": "It is the wildcard pattern."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the definition line of a shell function called `log` (include the opening brace)",
+          "answers": [
+            "log() {",
+            "log () {"
+          ],
+          "hint": "name() then an opening brace.",
+          "explain": "log() { begins a function; its arguments are $1, $@ just like a script's."
+        }
+      ]
+    },
+    {
+      "title": "Arrays and Safe Scripts",
+      "body": "An **indexed array** holds a list. Assign with `name=(...)`, read an element with `${name[0]}` (indexing starts at 0), and remember `${name[@]}` is all elements while `${#name[@]}` is the count:\n\n```bash\nhosts=(web-01 web-02 db-01)\necho \"${hosts[0]}\"        # web-01\necho \"${hosts[@]}\"        # all three\necho \"${#hosts[@]}\"       # 3\nfor h in \"${hosts[@]}\"; do echo \"$h\"; done\n```\n\nQuote `\"${hosts[@]}\"` in loops so elements containing spaces stay together. An **associative array** uses string keys and must be declared first with `declare -A`:\n\n```bash\ndeclare -A ports\nports[web]=8080\nports[db]=5432\nfor k in \"${!ports[@]}\"; do echo \"$k -> ${ports[$k]}\"; done\n```\n\nNow the part that separates hobby scripts from production ones: **safety flags**. Put this near the top of every serious script:\n\n```bash\nset -euo pipefail\n```\n\n`-e` exits on any command failure, `-u` errors on an undefined variable, and `-o pipefail` makes a pipeline fail if *any* stage fails (by default only the last command's status counts). Together they turn silent mistakes into loud stops.\n\nA **trap** runs cleanup when the script exits or is interrupted:\n\n```bash\ntmp=\"$(mktemp -d)\"\ncleanup() { rm -rf \"$tmp\"; }\ntrap cleanup EXIT\n```\n\n`EXIT` fires on any exit, including errors, so temporary files are always removed. Finally, run `shellcheck script.sh` before trusting a script: it catches the quoting and logic bugs humans miss and is available in every major package manager.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `set -o pipefail` add on top of `set -eu`?",
+          "options": [
+            "A pipeline reports failure if any command in it fails, not just the last",
+            "It prints every pipeline before running it",
+            "It runs each pipeline twice",
+            "It disables pipes entirely"
+          ],
+          "answer": 0,
+          "explain": "By default only the last command's status counts; pipefail makes the whole pipeline fail when an earlier stage does.",
+          "hint": "It is about failures earlier in the pipe."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the array assignment that creates an indexed array `hosts` containing `web-01`, `web-02` and `db-01`",
+          "answers": [
+            "hosts=(web-01 web-02 db-01)"
+          ],
+          "hint": "Use name=(item item item).",
+          "explain": "hosts=(...) fills an indexed array; reach for elements with ${hosts[0]} and all with \"${hosts[@]}\"."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the declaration line that creates an associative array called `ports`",
+          "answers": [
+            "declare -A ports"
+          ],
+          "hint": "Associative arrays need an explicit declaration with an upper-case flag.",
+          "explain": "declare -A ports makes ports keyed by string, so ports[web]=8080 works."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In `set -euo pipefail`, what does the `u` option do?",
+          "options": [
+            "Errors out when an undefined variable is used",
+            "Updates the script in place",
+            "Unsets all variables when the script exits",
+            "Runs commands without quoting"
+          ],
+          "answer": 0,
+          "explain": "-u treats an unset variable as an error, catching typos that would otherwise silently expand to nothing.",
+          "hint": "u is for undefined variables."
+        }
+      ]
+    },
+    {
+      "title": "Text Pipelines in Scripts",
+      "body": "Shell scripts shine when they glue text tools together. Three habits matter: capture output with `$(...)`, filter with `grep`, and transform with `sed`/`awk` — all inside the script, safely quoted.\n\n**Command substitution** runs a command and drops its output into a string or variable, stripping trailing newlines:\n\n```bash\ncount=$(grep -c ERROR app.log)          # number of matching lines\nfiles=$(find /data -name \"*.csv\")\necho \"found $count errors in $files\"\n```\n\n`grep -q` is the scripting form of grep: it prints nothing and just sets the exit code, which is perfect for an `if`:\n\n```bash\nif grep -q \"OutOfMemory\" \"$log\"; then\n  echo \"memory problem detected\" >&2\nfi\n```\n\nPipe through `sed` or `awk` to reshape a value before you use it:\n\n```bash\nversion=$(awk -F= '/^version=/ {print $2}' app.properties)\nstripped=$(printf '%s' \"$input\" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')\n```\n\nThe second line trims leading and trailing whitespace — a tiny, reusable cleanup you will reach for often.\n\nTo read a file **line by line**, loop with `read`. Doing this through a pipe runs the loop in a subshell, so variables set inside are lost; send the file in with `<` instead:\n\n```bash\nwhile IFS= read -r line; do\n  if [[ -z \"$line\" || \"$line\" == \\#* ]]; then\n    continue\n  fi\n  echo \"processing: $line\"\ndone < input.txt\n```\n\nUnder `set -e`, be careful with `test && action` as the final line of a loop body: if the test fails, the body returns non-zero and the script can exit. An explicit `if` avoids that trap.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why is `while ... done < file` preferred over `cat file | while ... done`?",
+          "options": [
+            "The pipe runs the loop in a subshell, so variables it sets are lost",
+            "The pipe is slower but variables survive",
+            "There is no difference in behaviour",
+            "A pipe cannot feed a while loop at all"
+          ],
+          "answer": 0,
+          "explain": "Piping into while runs the loop in a subshell; any variable assigned there vanishes when it ends. Redirection keeps it in the current shell.",
+          "hint": "Think about where the loop actually runs."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command substitution that stores the result of `grep -c ERROR app.log` in a variable called `count`",
+          "answers": [
+            "count=$(grep -c ERROR app.log)",
+            "count=`grep -c ERROR app.log`"
+          ],
+          "hint": "Variable, equals, then $(...) around the command.",
+          "explain": "count=$(grep -c ...) captures the number of matching lines so the script can compare or report it."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the `if` test line that uses `grep -q` to check whether `$log` contains `panic`",
+          "answers": [
+            "if grep -q panic \"$log\"; then",
+            "if grep -q panic $log; then"
+          ],
+          "hint": "grep -q is quiet grep; it only sets the exit code.",
+          "explain": "grep -q prints nothing and returns success or failure, which is exactly what an if needs."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of a text pipeline in a script in order, from raw data to a value you can use",
+          "items": [
+            "Run the command and capture its output with $(...)",
+            "Filter with grep -q or grep -c to reduce it to a signal",
+            "Reshape with sed or awk to trim or extract fields",
+            "Store the result in a quoted variable and test it"
+          ],
+          "explain": "Capture, filter, reshape, use: small tools chained this way replace a hundred lines of bespoke logic.",
+          "hint": "You cannot filter before you have captured, or use a value before you have reshaped it."
+        }
+      ]
+    },
+    {
+      "title": "Putting It Together: a Backup Script",
+      "body": "Let us assemble everything into a script you could actually run nightly. It takes a source directory, writes a timestamped tarball, logs what it did, and exits non-zero if anything fails.\n\n```bash\n#!/usr/bin/env bash\nset -euo pipefail\n\n# --- configuration ---------------------------------------------------------\nSOURCE=\"${1:-/srv/app}\"          # default to /srv/app if no argument given\nDEST=\"${2:-/srv/backups}\"        # default destination\nSTAMP=\"$(date +%Y-%m-%d_%H%M%S)\"\nARCHIVE=\"$DEST/app-$STAMP.tar.gz\"\nLOG=\"$DEST/backup.log\"\n\nlog() { printf '%s [%s] %s\\n' \"$(date +%FT%T)\" \"$1\" \"$2\" >> \"$LOG\"; }\n\n# --- validate before doing anything ----------------------------------------\nif [[ ! -d \"$SOURCE\" ]]; then\n  log ERROR \"source $SOURCE does not exist\"\n  exit 1\nfi\nmkdir -p \"$DEST\"\n\n# --- do the work, cleaning up if interrupted -------------------------------\ntmp=\"$ARCHIVE.part\"\ntrap 'rm -f \"$tmp\"; log ERROR \"backup aborted\"' ERR INT TERM\n\nlog INFO \"starting backup of $SOURCE\"\ntar -czf \"$tmp\" -C \"$(dirname \"$SOURCE\")\" \"$(basename \"$SOURCE\")\"\nmv \"$tmp\" \"$ARCHIVE\"\n\nlog INFO \"wrote $ARCHIVE ($(du -h \"$ARCHIVE\" | cut -f1))\"\nexit 0\n```\n\nRead it top to bottom. `set -euo pipefail` means any failure stops the script instead of limping on. `${1:-/srv/app}` supplies a default when the argument is absent, combining argument handling with the safety of `-u`. The `log` function appends timestamped lines to one file, and the `trap` removes a half-written archive if `tar` fails or the script is interrupted — no corrupt backups left behind.\n\nBuilding the archive into a `.part` file and `mv`-ing it into place at the end is the atomic-write pattern: a reader never sees a partial backup. `tar -czf` creates a gzip-compressed archive, and `-C dir name` changes into the parent first so the archive stores clean relative paths instead of absolute ones.\n\nSchedule it with cron and you have unattended, logged, safe backups:\n\n```cron\n0 2 * * * /usr/local/bin/backup.sh /srv/app /srv/backups\n```",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `${1:-/srv/app}` produce when the script is run with no arguments?",
+          "options": [
+            "The default /srv/app",
+            "An error because $1 is unset",
+            "An empty string",
+            "The script's own name"
+          ],
+          "answer": 0,
+          "explain": "The :-, default expansion substitutes the value after :- when the variable is unset or empty, so even with set -u the script keeps going.",
+          "hint": "The :- supplies a fallback."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the tar command that creates a gzip-compressed archive `app.tar.gz` containing the directory `app`, changing into `/srv` first so no absolute paths are stored",
+          "answers": [
+            "tar -czf app.tar.gz -C /srv app",
+            "tar czf app.tar.gz -C /srv app"
+          ],
+          "hint": "Combine c, z and f; use -C /srv to set the working directory for the walk.",
+          "explain": "tar -czf app.tar.gz -C /srv app archives app with relative paths, so it restores cleanly anywhere."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why write the archive to `$ARCHIVE.part` and then `mv` it to `$ARCHIVE`?",
+          "options": [
+            "So a reader never sees a partially written backup; mv within a filesystem is atomic",
+            "mv compresses the file a second time",
+            "It saves disk space",
+            "tar requires a .part suffix"
+          ],
+          "answer": 0,
+          "explain": "The atomic-write pattern keeps the final name pointing at a complete file, so a concurrent reader or the next run never sees a truncated archive.",
+          "hint": "Think about what happens if the process dies halfway."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a short Markdown README for the backup script: include a heading, a fenced code block, a mention of `tar`, and a mention of scheduling with cron.",
+          "patterns": [
+            {
+              "re": "^#{1,6}\\s+\\S",
+              "m": "a Markdown heading"
+            },
+            {
+              "re": "```[\\s\\S]*?```",
+              "m": "a fenced code block"
+            },
+            {
+              "re": "\\btar\\b",
+              "m": "a mention of the tar archive tool"
+            },
+            {
+              "re": "cron",
+              "m": "a mention of cron"
+            }
+          ],
+          "solution": "# Nightly Backup Script\n\n`backup.sh` writes a timestamped `tar.gz` archive of a source directory and appends to a log.\n\n## Usage\n\n```bash\n./backup.sh /srv/app /srv/backups\n```\n\n## Scheduling\n\nAdd a cron entry to run it at 02:00 every night.\n",
+          "explain": "A heading, a fenced usage block, plus tar and cron references document the script well enough for a colleague to operate it.",
+          "hint": "Use a # heading, a fenced block for the command, and mention tar and cron."
+        }
+      ]
+    }
+  ]
+}

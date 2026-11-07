@@ -1,0 +1,571 @@
+{
+  "id": "sql",
+  "title": "SQL for Application Support",
+  "subtitle": "Find the data behind the ticket",
+  "color": "#7b5cff",
+  "order": 3,
+  "description": "Answer real support questions from a small support database: ticket statuses and priorities, joins to customers and agents, and counts that prove what is happening. Every query runs in the page.",
+  "lessons": [
+    {
+      "title": "Reading a Support Database",
+      "body": "SQL is how you ask a database a question. Before you can ask anything, you need to know how the data is arranged. A database stores information in **tables**, and a table is just a grid: named **columns** down the side, and one **row** per thing.\n\nThis course runs on a small support database with three tables:\n\n| table | one row is... | columns |\n| --- | --- | --- |\n| `tickets` | one support ticket | id, subject, status, priority, customer_id, agent_id, resolved_minutes |\n| `customers` | one customer account | id, name, plan, region |\n| `agents` | one support engineer | id, name, team, level |\n\nEvery query starts the same way: what you want, then where it lives.\n\n```sql\nSELECT * FROM tickets;\n```\n\nRead it aloud: select every column (`*` means all columns) from the tickets table. The result is always a fresh grid holding exactly the columns you asked for. When you only need a few, name them instead, in the order you want them back:\n\n```sql\nSELECT subject, status, priority FROM tickets;\n```\n\nOrder in the `SELECT` list is order in the result, so `subject` is always the first column of the output.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "Show every column of every ticket.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT * FROM tickets",
+          "expected": {
+            "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"],
+            "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ]
+          },
+          "hint": "The star stands for all columns.",
+          "explain": "SELECT * returns every column of every row - the whole tickets table."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show just the subject, status, and priority of each ticket, in that order.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, status, priority FROM tickets",
+          "expected": {
+            "columns": ["subject", "status", "priority"],
+            "rows": [
+              ["Login fails with 500", "Open", "P1"],
+              ["Export CSV is empty", "Pending", "P2"],
+              ["Add user to workspace", "New", "P4"],
+              ["Billing shows wrong plan", "Open", "P2"],
+              ["Dashboard slow to load", "Resolved", "P3"],
+              ["SSO redirect loop", "Resolved", "P1"],
+              ["API rate limit hit", "Pending", "P2"],
+              ["Password reset email missing", "Resolved", "P3"],
+              ["Webhook retries failing", "Open", "P1"],
+              ["Upgrade to Enterprise quote", "New", "P4"]
+            ]
+          },
+          "hint": "Separate the column names with commas, in the order you want them.",
+          "explain": "The columns come back exactly as you named them: subject first, then status, then priority."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In the `tickets` table, what does one row represent?",
+          "options": [
+            "One support ticket and its details",
+            "One column of data",
+            "One customer's entire history",
+            "The whole database"
+          ],
+          "answer": 0,
+          "explain": "One row per ticket. Each column (status, priority, agent_id...) is a property of that ticket.",
+          "hint": "Think about the noun the table is named after."
+        },
+        {
+          "type": "input",
+          "prompt": "Which SQL keyword begins every query that reads data from a table?",
+          "answers": ["select"],
+          "hint": "It is the first word of every query in this course.",
+          "explain": "SELECT names what you want back; FROM names where it lives."
+        }
+      ]
+    },
+    {
+      "title": "Filtering with WHERE",
+      "body": "A plain SELECT hands you every row. Real support questions have conditions, and `WHERE` is where they go:\n\n```sql\nSELECT subject FROM tickets WHERE status = 'Open';\n```\n\nThe quoting rule is the one beginners get wrong most often: **text needs single quotes, numbers do not**. `'Open'` and `'P1'` are text values. `WHERE id = 3` is a number, written bare. Forget the quotes and the database reads the word as a column name, then complains that no such column exists.\n\nComparisons work the way you expect: `=`, `!=`, `<`, `>`, `<=`, `>=`. Combine conditions with `AND` (both must be true) and `OR` (at least one must be true), and flip any condition with `NOT`:\n\n```sql\nSELECT subject FROM tickets WHERE status = 'Open' AND priority = 'P1';\nSELECT subject FROM tickets WHERE status = 'New' OR status = 'Pending';\nSELECT subject FROM tickets WHERE NOT status = 'Resolved';\n```\n\nOne trap to remember: `AND` binds tighter than `OR`. In `status = 'Open' AND priority = 'P1' OR priority = 'P4'`, every P4 survives as well as the Open P1 tickets. When a mixed condition matters, wrap it in parentheses.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "List the subject and priority of every P1 ticket.",
+          "starter": "SELECT subject, priority FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, priority FROM tickets WHERE priority = 'P1'",
+          "expected": {
+            "columns": ["subject", "priority"],
+            "rows": [
+              ["Login fails with 500", "P1"],
+              ["SSO redirect loop", "P1"],
+              ["Webhook retries failing", "P1"]
+            ]
+          },
+          "hint": "P1 is text, so it needs single quotes.",
+          "explain": "Three tickets carry the top priority: ids 1, 6 and 9."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject of tickets that are both Open and P1.",
+          "starter": "SELECT subject FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject FROM tickets WHERE status = 'Open' AND priority = 'P1'",
+          "expected": {
+            "columns": ["subject"],
+            "rows": [
+              ["Login fails with 500"],
+              ["Webhook retries failing"]
+            ]
+          },
+          "hint": "Join the two conditions with AND.",
+          "explain": "AND keeps only rows where both conditions hold: ticket 1 and ticket 9."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject and status of every ticket that is New or Pending - the ones nobody has finished.",
+          "starter": "SELECT subject, status FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, status FROM tickets WHERE status = 'New' OR status = 'Pending'",
+          "expected": {
+            "columns": ["subject", "status"],
+            "rows": [
+              ["Export CSV is empty", "Pending"],
+              ["Add user to workspace", "New"],
+              ["API rate limit hit", "Pending"],
+              ["Upgrade to Enterprise quote", "New"]
+            ]
+          },
+          "hint": "OR keeps a row if either side is true.",
+          "explain": "Four tickets are New or Pending; the Open and Resolved ones drop out."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject of every ticket that is not yet Resolved.",
+          "starter": "SELECT subject FROM tickets WHERE ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject FROM tickets WHERE NOT status = 'Resolved'",
+          "expected": {
+            "columns": ["subject"],
+            "rows": [
+              ["Login fails with 500"],
+              ["Export CSV is empty"],
+              ["Add user to workspace"],
+              ["Billing shows wrong plan"],
+              ["API rate limit hit"],
+              ["Webhook retries failing"],
+              ["Upgrade to Enterprise quote"]
+            ]
+          },
+          "hint": "NOT flips a condition: everything except the matches.",
+          "explain": "Seven tickets survive - all of them except the three Resolved ones."
+        }
+      ]
+    },
+    {
+      "title": "Sorting and Limiting",
+      "body": "A query makes no promise about the order rows come back in. If the order matters, you have to ask for it:\n\n```sql\nSELECT id, subject FROM tickets ORDER BY id DESC LIMIT 3;\n```\n\n`ORDER BY` names the column to sort on. `ASC` means ascending (lowest first) and it is the default when you write nothing. `DESC` means descending (highest first). Ticket ids grow over time, so `ORDER BY id DESC` puts the newest tickets first - a queue view an agent can work straight down.\n\n`LIMIT` keeps only the first N rows of whatever has been produced. Because sorting happens **before** trimming, the pair answers everyday questions: the three newest tickets, the slowest resolutions, the oldest ticket still waiting. Get the clauses in the wrong order and the query is rejected: `FROM`, then `WHERE`, then `ORDER BY`, then `LIMIT`, in that fixed sequence.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "Show the three newest tickets: their id and subject, newest first.",
+          "starter": "SELECT id, subject FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT id, subject FROM tickets ORDER BY id DESC LIMIT 3",
+          "expected": {
+            "columns": ["id", "subject"],
+            "rows": [
+              [10, "Upgrade to Enterprise quote"],
+              [9, "Webhook retries failing"],
+              [8, "Password reset email missing"]
+            ]
+          },
+          "ordered": true,
+          "hint": "Sort on id descending, then trim the list with LIMIT 3.",
+          "explain": "Ids grow over time, so the highest ids are the newest tickets."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subjects of all Open tickets, oldest ticket first.",
+          "starter": "SELECT subject FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject FROM tickets WHERE status = 'Open' ORDER BY id ASC",
+          "expected": {
+            "columns": ["subject"],
+            "rows": [
+              ["Login fails with 500"],
+              ["Billing shows wrong plan"],
+              ["Webhook retries failing"]
+            ]
+          },
+          "ordered": true,
+          "hint": "Filter with WHERE first, then sort ascending on id.",
+          "explain": "The Open tickets are ids 1, 4 and 9 - ascending id puts the oldest one first."
+        },
+        {
+          "type": "sql",
+          "prompt": "Among Resolved tickets, which ones took longest? Show subject and resolved_minutes, slowest first.",
+          "starter": "SELECT subject, resolved_minutes FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT subject, resolved_minutes FROM tickets WHERE status = 'Resolved' ORDER BY resolved_minutes DESC",
+          "expected": {
+            "columns": ["subject", "resolved_minutes"],
+            "rows": [
+              ["Dashboard slow to load", 320],
+              ["Password reset email missing", 60],
+              ["SSO redirect loop", 45]
+            ]
+          },
+          "ordered": true,
+          "hint": "Filter to Resolved so every row has a number, then sort the minutes descending.",
+          "explain": "Descending puts the biggest number - the slowest fix - on top."
+        },
+        {
+          "type": "order",
+          "prompt": "A query runs in a fixed order. Put these steps in the sequence the database follows",
+          "items": [
+            "Read the table named in FROM",
+            "Keep only matching rows with WHERE",
+            "Sort the surviving rows with ORDER BY",
+            "Trim the list to the first N rows with LIMIT"
+          ],
+          "explain": "FROM, then WHERE, then ORDER BY, then LIMIT - which is why you cannot write LIMIT before ORDER BY.",
+          "hint": "Start with where the data comes from, finish with how much of it you keep."
+        }
+      ]
+    },
+    {
+      "title": "Joining Tables",
+      "body": "Support data is spread across tables so nothing is stored twice. A ticket does not repeat the customer's name; it stores `customer_id`, a number pointing at a row in `customers`. That number is a **foreign key**, and a `JOIN` follows it:\n\n```sql\nSELECT tickets.subject, customers.name\nFROM tickets\nJOIN customers ON tickets.customer_id = customers.id;\n```\n\nRead it as: for each ticket row, find the customer row whose `id` equals the ticket's `customer_id`, and stitch the two into one output row. The `ON` clause is the matching rule - get it wrong and you get nonsense, or nothing at all.\n\nTickets also carry `agent_id`, pointing at `agents`, so the same pattern answers who is handling what:\n\n```sql\nSELECT tickets.subject, agents.name\nFROM tickets\nJOIN agents ON tickets.agent_id = agents.id;\n```\n\nNotice the column names in the result: the engine returns bare names - `subject`, `name` - even though you wrote `customers.name`. If two tables both have a column called `id`, qualify it (`tickets.id`) in the query so there is no doubt which one you mean.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A ticket row has `customer_id = 4`. What does the 4 refer to?",
+          "options": [
+            "The row in the customers table whose id is 4",
+            "The customer's fourth ticket",
+            "The agent assigned to the ticket",
+            "A count of four customers"
+          ],
+          "answer": 0,
+          "explain": "customer_id is a foreign key: it points at customers.id, so it matches one customer's row.",
+          "hint": "The number points across the tables."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show each ticket's subject next to the name of the customer who raised it.",
+          "starter": "SELECT tickets.subject, customers.name FROM tickets ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] },
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT tickets.subject, customers.name FROM tickets JOIN customers ON tickets.customer_id = customers.id",
+          "expected": {
+            "columns": ["subject", "name"],
+            "rows": [
+              ["Login fails with 500", "Northwind Traders"],
+              ["Export CSV is empty", "Fabrikam"],
+              ["Add user to workspace", "Contoso"],
+              ["Billing shows wrong plan", "Northwind Traders"],
+              ["Dashboard slow to load", "Adventure Works"],
+              ["SSO redirect loop", "Tailspin Toys"],
+              ["API rate limit hit", "Fabrikam"],
+              ["Password reset email missing", "Litware"],
+              ["Webhook retries failing", "Tailspin Toys"],
+              ["Upgrade to Enterprise quote", "Adventure Works"]
+            ]
+          },
+          "hint": "JOIN customers ON tickets.customer_id = customers.id",
+          "explain": "Ten tickets, each stitched to the customer that raised it."
+        },
+        {
+          "type": "sql",
+          "prompt": "List the subject of every ticket raised by an Enterprise-plan customer.",
+          "starter": "SELECT tickets.subject FROM tickets JOIN customers ON tickets.customer_id = customers.id ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] },
+            { "name": "customers", "columns": ["id", "name", "plan", "region"], "rows": [
+              [1, "Northwind Traders", "Enterprise", "EMEA"],
+              [2, "Fabrikam", "Pro", "AMER"],
+              [3, "Contoso", "Free", "APAC"],
+              [4, "Adventure Works", "Pro", "AMER"],
+              [5, "Tailspin Toys", "Enterprise", "EMEA"],
+              [6, "Litware", "Free", "APAC"]
+            ] }
+          ],
+          "solution": "SELECT tickets.subject FROM tickets JOIN customers ON tickets.customer_id = customers.id WHERE customers.plan = 'Enterprise'",
+          "expected": {
+            "columns": ["subject"],
+            "rows": [
+              ["Login fails with 500"],
+              ["Billing shows wrong plan"],
+              ["SSO redirect loop"],
+              ["Webhook retries failing"]
+            ]
+          },
+          "hint": "Add WHERE customers.plan = 'Enterprise' after the join.",
+          "explain": "Northwind Traders and Tailspin Toys are the Enterprise customers - four tickets between them."
+        },
+        {
+          "type": "sql",
+          "prompt": "Show the subject and the handling agent's team for every ticket worked by Ana Novak.",
+          "starter": "SELECT tickets.subject, agents.team FROM tickets JOIN agents ON tickets.agent_id = agents.id ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] },
+            { "name": "agents", "columns": ["id", "name", "team", "level"], "rows": [
+              [1, "Priya Shah", "Platform", "L1"],
+              [2, "Marco Rossi", "Billing", "L1"],
+              [3, "Chen Wei", "Platform", "L2"],
+              [4, "Ana Novak", "Identity", "L3"]
+            ] }
+          ],
+          "solution": "SELECT tickets.subject, agents.team FROM tickets JOIN agents ON tickets.agent_id = agents.id WHERE agents.name = 'Ana Novak'",
+          "expected": {
+            "columns": ["subject", "team"],
+            "rows": [
+              ["SSO redirect loop", "Identity"],
+              ["Webhook retries failing", "Identity"]
+            ]
+          },
+          "hint": "Join on tickets.agent_id = agents.id, then filter with WHERE agents.name = 'Ana Novak'.",
+          "explain": "Ana Novak is agents.id 4, who handled tickets 6 and 9 - both on the Identity team."
+        }
+      ]
+    },
+    {
+      "title": "Counting and Summarising",
+      "body": "Sometimes you do not want a list of rows, you want one number. **Aggregate functions** collapse the whole result into a single value:\n\n```sql\nSELECT COUNT(*) FROM tickets;\nSELECT AVG(resolved_minutes) FROM tickets;\n```\n\n`COUNT(*)` counts rows. `COUNT(column)` counts only the rows where that column actually holds a value, and that difference matters here: unresolved tickets have an empty `resolved_minutes`, which SQL calls **NULL**. So `COUNT(*)` returns 10 while `COUNT(resolved_minutes)` returns 5. `SUM` adds a column up, `MIN` and `MAX` find the ends, and `AVG` is the mean - all of them ignoring NULLs.\n\nAggregates pair with `WHERE`, because they only see the rows that survived the filter:\n\n```sql\nSELECT COUNT(*) FROM tickets WHERE status = 'Open';\n```\n\nThe result of an aggregate query is always **one row**, and the column name is the function exactly as written: `COUNT(*)`, `COUNT(resolved_minutes)`, `AVG(resolved_minutes)`. There is no `GROUP BY` in this engine, so every aggregate answers about the whole (filtered) table at once.",
+      "exercises": [
+        {
+          "type": "sql",
+          "prompt": "How many tickets are still Open? Show just the count.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT COUNT(*) FROM tickets WHERE status = 'Open'",
+          "expected": { "columns": ["COUNT(*)"], "rows": [[3]] },
+          "hint": "COUNT with a star inside the parentheses, plus a WHERE filter.",
+          "explain": "Three tickets - ids 1, 4 and 9 - are still Open."
+        },
+        {
+          "type": "sql",
+          "prompt": "How many tickets already have a resolution time recorded? Show just that count.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT COUNT(resolved_minutes) FROM tickets",
+          "expected": { "columns": ["COUNT(resolved_minutes)"], "rows": [[5]] },
+          "hint": "COUNT(column) skips the rows where that column is empty (NULL).",
+          "explain": "Ten tickets exist, but only five hold a resolved_minutes value, so COUNT(resolved_minutes) returns 5."
+        },
+        {
+          "type": "sql",
+          "prompt": "What is the average resolution time, in minutes, across the tickets that have one? Show just the average.",
+          "starter": "SELECT ",
+          "db": [
+            { "name": "tickets", "columns": ["id", "subject", "status", "priority", "customer_id", "agent_id", "resolved_minutes"], "rows": [
+              [1, "Login fails with 500", "Open", "P1", 1, 1, null],
+              [2, "Export CSV is empty", "Pending", "P2", 2, 2, 95],
+              [3, "Add user to workspace", "New", "P4", 3, 3, null],
+              [4, "Billing shows wrong plan", "Open", "P2", 1, 2, null],
+              [5, "Dashboard slow to load", "Resolved", "P3", 4, 1, 320],
+              [6, "SSO redirect loop", "Resolved", "P1", 5, 4, 45],
+              [7, "API rate limit hit", "Pending", "P2", 2, 3, 180],
+              [8, "Password reset email missing", "Resolved", "P3", 6, 1, 60],
+              [9, "Webhook retries failing", "Open", "P1", 5, 4, null],
+              [10, "Upgrade to Enterprise quote", "New", "P4", 4, 2, null]
+            ] }
+          ],
+          "solution": "SELECT AVG(resolved_minutes) FROM tickets",
+          "expected": { "columns": ["AVG(resolved_minutes)"], "rows": [[140]] },
+          "hint": "AVG over the resolved_minutes column; it ignores the empty cells.",
+          "explain": "95 + 320 + 45 + 180 + 60 = 700 minutes across 5 tickets, so the average is 140."
+        },
+        {
+          "type": "input",
+          "prompt": "Name the aggregate function that adds up the values in a numeric column.",
+          "answers": ["sum", "sum()"],
+          "hint": "Three letters, and it is what a spreadsheet calls a total.",
+          "explain": "SUM adds a column up - for example SELECT SUM(resolved_minutes) FROM tickets returns 700."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "id": "linux",
+  "title": "Linux and the Command Line for Support",
+  "subtitle": "Navigate, inspect, and grab evidence fast",
+  "color": "#3ee6ff",
+  "order": 5,
+  "description": "Nearly every SaaS server runs Linux. Learn the shell commands support engineers use every day to navigate a box, read its logs, check its resources, and prove what happened.",
+  "lessons": [
+    {
+      "title": "The Shell and Navigation",
+      "body": "The **shell** is a text program that reads the commands you type and runs them for the operating system. Bash is the most common shell. When you see a prompt like `ubuntu@web-01:~$`, the part before the `@` is your user, the part after it is the machine, and the symbol at the end shows your **privileges**: `$` for a normal user, `#` for root, the all-powerful administrator account.\n\nEvery file on Linux sits in one giant tree that starts at `/`, the **root directory**. A path is simply the route to a file: `/var/log/nginx/error.log` walks down from the top. Paths starting with `/` are **absolute** (always complete), while paths that do not are **relative** (resolved from where you are standing right now).\n\nFour commands move you around:\n\n```\npwd             # where am I? (print working directory)\nls              # what is here?\nls -la          # everything, including hidden files, with details\ncd /var/log     # go there; cd ~ returns home, cd .. goes up one level\n```\n\nFiles whose names start with a dot are hidden, so `ls -la` is how you see them.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which command prints the full path of the directory you are currently in?",
+          "options": [
+            "pwd",
+            "ls",
+            "cd",
+            "cat"
+          ],
+          "answer": 0,
+          "explain": "pwd stands for print working directory, and that is exactly what it prints.",
+          "hint": "Its name is three words long, initials only."
+        },
+        {
+          "type": "mcq",
+          "prompt": "You are at the prompt `ubuntu@web-01:~$`. What does the `~` mean?",
+          "options": [
+            "Your home directory, such as /home/ubuntu",
+            "The root directory /",
+            "The /tmp directory",
+            "A file named tilde"
+          ],
+          "answer": 0,
+          "explain": "The tilde is shorthand for your home directory, and `cd ~` always takes you back there.",
+          "hint": "It is the one place that belongs to you, whatever your username is."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact `ls` command that shows the current directory in long format (permissions and sizes) including hidden files — both flags required",
+          "answers": ["ls -la", "ls -al"],
+          "caseSensitive": true,
+          "hint": "Two single-letter flags combined: -l for long format, -a for all files.",
+          "explain": "ls -la lists everything with details; without -a you never see the dotfiles."
+        }
+      ]
+    },
+    {
+      "title": "Reading Files",
+      "body": "`cat` prints a whole file to the screen at once. That is fine for a small config file and a disaster for a 2 GB log, because your terminal has to load everything and you scroll straight past the part you needed. For big files, reach for `less` instead:\n\n```\nless /var/log/syslog\n```\n\nInside `less` you move with the arrow keys or space bar, search by typing `/pattern`, and quit with `q`. It only loads what fits on screen.\n\n`head` and `tail` read the two ends of a file: `head -n 50 app.log` shows the first 50 lines (handy for learning the log's format), and `tail -n 100 app.log` shows the last 100 lines (handy for what just happened). The `tail -f` variant is the support engineer's best friend: it prints new lines as they are written, so you can watch a live log while you reproduce the customer's issue:\n\n```\ntail -f /var/log/nginx/access.log\n```\n\nPress `Ctrl+C` to stop watching.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A customer sends you a 3 GB log file. Which tool should you open it with?",
+          "options": [
+            "less, because it only loads what fits on screen",
+            "cat, because it shows everything at once",
+            "echo, because it is the fastest command",
+            "cd, because you need to enter the file first"
+          ],
+          "answer": 0,
+          "explain": "less reads a huge file lazily, so your terminal stays responsive and you can search inside it.",
+          "hint": "One of these commands was built for paging through large files interactively."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that watches `app.log` live, printing each new line as it is written",
+          "answers": ["tail -f app.log"],
+          "caseSensitive": true,
+          "hint": "tail with the flag that means follow.",
+          "explain": "tail -f keeps the file open and echoes new lines, which is how you watch a request arrive in real time."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that prints the last 100 lines of `app.log`",
+          "answers": ["tail -n 100 app.log", "tail -100 app.log"],
+          "caseSensitive": true,
+          "hint": "tail plus the line-count flag, then the number, then the file.",
+          "explain": "tail -n 100 app.log prints the final 100 lines, which is usually where the current problem lives."
+        },
+        {
+          "type": "order",
+          "prompt": "You have never seen this log file before. Put the steps in order, from your first look to watching it live",
+          "items": [
+            "Check the file's size and location with ls -lh app.log",
+            "Look at the first 50 lines with head -n 50 to learn the format",
+            "Read it interactively with less, searching with /pattern",
+            "Follow it live with tail -f while reproducing the issue"
+          ],
+          "explain": "Size first, then format, then browse, then follow: know what you are looking at before you watch it.",
+          "hint": "Start broad and static, finish narrow and live."
+        }
+      ]
+    },
+    {
+      "title": "Searching and Filtering",
+      "body": "`grep` hunts for text inside files. The three flags you will actually use: `-i` ignores upper or lower case, `-n` shows line numbers, and `-r` searches every file under a directory tree.\n\n```\ngrep -i error app.log              # any line containing 'error', any case\ngrep -n \"17:42:05\" app.log         # matching lines, with their numbers\ngrep -r \"TimeoutException\" /var/log/\n```\n\nThe **pipe**, written `|`, feeds the output of one command into the next, so you can build small pipelines. Three commands finish most of them: `wc -l` counts lines, `sort` puts lines in order, and `uniq` collapses neighbouring duplicates (which is why you sort first):\n\n```\ngrep -i error app.log | wc -l                       # how many errors?\ngrep -i error app.log | sort | uniq -c | sort -rn    # which error, how often?\n```\n\nThat second line is a real support reflex. When a customer says the log is full of errors, the questions are which error and how many. Quote any pattern containing spaces, like `grep \"connection refused\" app.log`, so the shell passes it through as one argument.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does the pipe character `|` do?",
+          "options": [
+            "Sends the output of one command into the next command",
+            "Copies a file to a new location",
+            "Runs two commands at the same time",
+            "Stops the command you are running"
+          ],
+          "answer": 0,
+          "explain": "A pipe chains commands together: what comes out of the left side becomes the input on the right.",
+          "hint": "It is how you build a mini one-line program."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that searches `app.log` for the word `error` ignoring case (so ERROR and Error both match)",
+          "answers": ["grep -i error app.log"],
+          "caseSensitive": true,
+          "hint": "grep, then the ignore-case flag, then the word and the file.",
+          "explain": "The -i flag makes grep match error, Error and ERROR alike, which is what you want when formats vary."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that counts how many lines in `app.log` contain `error`, ignoring case",
+          "answers": ["grep -i error app.log | wc -l"],
+          "caseSensitive": true,
+          "hint": "grep for the lines first, then pipe them into the line-count command.",
+          "explain": "grep filters the lines and wc -l counts them, giving you one number to compare against a minute ago."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this pipeline in the order the data actually flows, from the log file to a ranked report",
+          "items": [
+            "grep -i error app.log   (keep only the error lines)",
+            "sort                    (group identical lines together)",
+            "uniq -c                 (count each distinct line)",
+            "sort -rn                (biggest count first)"
+          ],
+          "explain": "Filter, then group, then count, then rank: that order is what makes the report readable.",
+          "hint": "You cannot count duplicates until they are sitting next to each other."
+        }
+      ]
+    },
+    {
+      "title": "Processes and Resources",
+      "body": "A **process** is any program currently running, and each one has a **PID** (process ID). `ps aux` prints a snapshot of them all: user, PID, CPU and memory use, and the command. For a live view use `top` (or `htop`, a friendlier version) — press `q` to quit.\n\nWhen a process misbehaves, `kill PID` asks it politely to stop (the normal **SIGTERM** signal). If it ignores you, `kill -9 PID` forces it down (**SIGKILL**). Always try the polite form first, so the service can close files and finish requests cleanly.\n\nTwo checks solve most of the tickets that start with 'the server is slow':\n\n```\ndf -h       # disk free, human-readable sizes — watch Use% on /var\nfree -m     # memory in megabytes\nuptime      # load average over 1, 5 and 15 minutes\n```\n\n**Saturation** means a resource has hit its limit. A disk at 100% makes every write fail (logs stop, databases crash), and a process pinned near 100% CPU for minutes is a runaway — that is the PID you find in `top` and kill.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `kill -9 4821` do?",
+          "options": [
+            "Forces process 4821 to stop immediately, with no chance to clean up",
+            "Asks process 4821 politely to restart",
+            "Waits for process 4821 to finish on its own",
+            "Prints the details of process 4821"
+          ],
+          "answer": 0,
+          "explain": "-9 is SIGKILL: it cannot be ignored, so use plain kill first and escalate only if the process refuses.",
+          "hint": "The 9 makes it a demand, not a request."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that shows how full each disk partition is, with human-readable sizes",
+          "answers": ["df -h"],
+          "caseSensitive": true,
+          "hint": "Two arguments: disk free, human.",
+          "explain": "df -h reports capacity and Use% per mount point — the fastest way to spot a full disk."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that prints a snapshot of the running processes with user, PID, CPU and memory",
+          "answers": ["ps aux"],
+          "caseSensitive": true,
+          "hint": "Two letters, then three classic flags: a, u, x.",
+          "explain": "ps aux is the standard process listing you will see in every interview and on every box."
+        },
+        {
+          "type": "order",
+          "prompt": "A web app has stopped responding. Put these triage steps in order, from the broad health check to taking action",
+          "items": [
+            "Check the overall load with uptime and glance at top",
+            "Confirm disk and memory with df -h and free -m",
+            "Pinpoint the stuck process with ps aux",
+            "Stop it with kill PID, escalating to kill -9 PID only if it refuses"
+          ],
+          "explain": "Broad to specific: see whether the box is overloaded, rule resources in or out, identify the process, then act on it.",
+          "hint": "Never kill anything before you know which PID and why."
+        }
+      ]
+    },
+    {
+      "title": "Permissions, Services, and Networking",
+      "body": "Linux tracks **users** and **groups**, and every file carries an owner, a group, and three permissions (read, write, execute) for each of them. `ls -l` shows the result as something like `rwxr-xr-x`. Two commands change it: `chmod` changes the mode (the permissions), `chown` changes the owner.\n\n```\nchmod 640 app.conf       # owner reads/writes, group reads, others nothing\nchown app:app app.conf   # hand the file to the app user and group\n```\n\nOn a production box you are rarely root (the superuser). `sudo systemctl restart nginx` runs a single command as root, and it is logged. **systemd** is the service manager: `systemctl status nginx` tells you whether the service is `active (running)` or `failed`, and `systemctl restart nginx` bounces it.\n\nTo check whether something is listening or reachable:\n\n```\ncurl -I https://example.com   # ask a URL for its headers\nss -tulpn                     # listening ports and the process on them\n```\n\nA quick support loop: `systemctl status` for the service, `ss -tulpn` for the port, `curl` from the client side.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which command changes who owns a file?",
+          "options": [
+            "chown",
+            "chmod",
+            "ps aux",
+            "df -h"
+          ],
+          "answer": 0,
+          "explain": "chown is change owner; chmod changes the permissions on the file instead.",
+          "hint": "The second half of the command name is 'own'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact systemctl command that shows whether the `nginx` service is running",
+          "answers": ["systemctl status nginx"],
+          "caseSensitive": true,
+          "hint": "systemctl, then the subcommand that reports state, then the service name.",
+          "explain": "systemctl status nginx shows active (running), failed, or stopped, plus the last few log lines."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact `ss` command that shows all listening TCP and UDP sockets with the process using them and without DNS lookups (five single-letter flags: t, u, l, p, n)",
+          "answers": ["ss -tulpn"],
+          "caseSensitive": true,
+          "hint": "ss followed by one flag combining t, u, l, p and n.",
+          "explain": "ss -tulpn answers 'is anything listening on 8080, and which process owns it?' (netstat is the older command for the same job)."
+        },
+        {
+          "type": "order",
+          "prompt": "A customer reports the app is down. Put these checks in order, working from inside the server outwards",
+          "items": [
+            "systemctl status app — is the service active?",
+            "ss -tulpn — is the app listening on its port?",
+            "curl -I http://localhost:8080 — does it answer on the box itself?",
+            "curl -I https://app.example.com — does it answer from outside?"
+          ],
+          "explain": "Inside out: service, then port, then local HTTP, then the outside view — each step narrows where the fault is.",
+          "hint": "Start with the process and finish with what the customer sees."
+        }
+      ]
+    }
+  ]
+}

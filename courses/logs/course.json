@@ -1,0 +1,250 @@
+{
+  "id": "logs",
+  "title": "Logs, Monitoring and Alerting",
+  "subtitle": "Know before the customer does",
+  "color": "#ff3d81",
+  "order": 6,
+  "description": "Read a log line like a detective, turn noisy output into signal, and use metrics and alerts so your team hears about trouble before the customer does.",
+  "lessons": [
+    {
+      "title": "What a Log Line Contains",
+      "body": "A **log line** is one timestamped record of something that happened. A classic text log looks like this:\n\n```\n2026-10-14 17:42:05 ERROR payment-service  req=8f3c-91ab  charge failed: timeout contacting provider\n```\n\nRead it field by field: the **timestamp** says when, the **severity level** says how bad, the **service** says who, and the message says what. Severity follows a ladder: `DEBUG` (detail for developers), `INFO` (normal milestones such as 'order placed'), `WARN` (something odd but survivable), `ERROR` (this request failed), and `FATAL` (the process could not carry on).\n\nThe `req=8f3c-91ab` part is a **request id**, also called a correlation id: a random string stamped on every line produced while handling one request. It is how you follow a single customer's journey across several services.\n\nA **stack trace** is the multi-line dump that follows an ERROR. Its top line names what broke, and the frames below show where, often ending in something like `at com.example.PaymentService.charge(PaymentService.java:88)`. Newer services write **JSON logs** instead: one JSON object per line, easy for machines to parse and easy to filter in a log viewer.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "In `2026-10-14 17:42:05 ERROR payment-service req=8f3c charge failed`, what does the word ERROR tell you?",
+          "options": [
+            "The severity: this event is a failure, not a routine step",
+            "The name of the log file",
+            "How many customers were affected",
+            "The IP address of the server"
+          ],
+          "answer": 0,
+          "explain": "ERROR is the severity field — it marks a failed request, while INFO would mark normal progress.",
+          "hint": "It answers 'how bad is this line?', not 'where did it come from?'."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What is a request id (correlation id) for?",
+          "options": [
+            "Tying together every log line produced while handling one single request",
+            "Encrypting the log file before it is stored",
+            "Counting how many errors happened today",
+            "Identifying the server's CPU model"
+          ],
+          "answer": 0,
+          "explain": "One id travels with the request through every service, so grep for it and you see the whole story in order.",
+          "hint": "Think of it as the ticket number for one customer's request."
+        },
+        {
+          "type": "input",
+          "prompt": "What is the name of the multi-line dump after an ERROR that lists the calls in progress and the exact file and line where the code broke? (two words)",
+          "answers": ["stack trace", "stacktrace"],
+          "hint": "It is named after the call stack.",
+          "explain": "A stack trace points you to the throwing class and line number, which is usually where the real bug report starts."
+        }
+      ]
+    },
+    {
+      "title": "Finding the Signal",
+      "body": "Logs are only useful if you can find the right lines. Start with **time**: when the customer says 'around 2pm', that is your first filter — read the window they gave you instead of the whole file.\n\nIf the customer has a **request id**, nothing beats it:\n\n```\ngrep 8f3c-91ab /var/log/app.log\n```\n\nThat pulls every line for one request, across every step it touched.\n\nCounting turns a feeling into a number:\n\n```\ngrep -c ERROR app.log                          # how many error lines?\ngrep -i \"connection refused\" app.log | wc -l   # same job, piped style\n```\n\nTotals still hide *when* things went wrong, so look at the **rate** — errors per minute — by comparing windows: 17:40 against 17:45 against the hour before. A rate that jumps five minutes ago is an incident; a rate that has been flat all day is a chronic bug worth a ticket.\n\nAnd for one failing request, follow it end to end. The id appears at the gateway, then the API, then the data layer, in that order. The first line where it turns ERROR is the line your investigation starts from.",
+      "exercises": [
+        {
+          "type": "input",
+          "prompt": "Write the exact grep command that finds every line containing the request id `8f3c-91ab` in `app.log`",
+          "answers": ["grep 8f3c-91ab app.log"],
+          "caseSensitive": true,
+          "hint": "grep, then the id, then the filename.",
+          "explain": "Grepping the correlation id reconstructs that one request's path through the system, line by line."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Errors spiked at 17:45. Which comparison tells you the most?",
+          "options": [
+            "Error counts per minute from 17:40–17:45 versus the previous hour",
+            "The total size of the log file in gigabytes",
+            "The number of lines containing INFO",
+            "The server's uptime in days"
+          ],
+          "answer": 0,
+          "explain": "A rate over time shows exactly when things changed; a whole-file total buries the change.",
+          "hint": "The question is not 'how many?' but 'how many per minute, compared with before?'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the exact command that counts the lines containing `ERROR` in `app.log` (the grep flag that counts instead of printing)",
+          "answers": ["grep -c ERROR app.log", "grep ERROR app.log | wc -l"],
+          "caseSensitive": true,
+          "hint": "grep has a one-letter flag for 'count only'.",
+          "explain": "grep -c prints just the number of matches; piping into wc -l achieves the same count."
+        },
+        {
+          "type": "order",
+          "prompt": "A customer reports failures at 17:45. Put the investigation steps in order, from their report down to a single line",
+          "items": [
+            "Note the exact time window the customer reported",
+            "Grab the request id from the error message or 500 log line they sent",
+            "grep for that id and follow the request through the services",
+            "Find the first line where the request turns ERROR — that is your starting point"
+          ],
+          "explain": "Window, then id, then follow the trail: each step narrows thousands of lines down to one.",
+          "hint": "Work from the customer's evidence towards the code path."
+        }
+      ]
+    },
+    {
+      "title": "Metrics and Dashboards",
+      "body": "Logs tell you what happened to one request; **metrics** are numbers counted over time, and a **dashboard** is the wall of charts built from them. Four numbers answer most 'is it healthy?' questions:\n\n- **Latency** — how long a request takes\n- **Throughput** — how many requests per second are handled\n- **Error rate** — what percentage of requests fail\n- **Saturation** — how full a resource is (CPU, memory, connections)\n\nThe trap is averages. If 95 requests take 50 ms and 5 take 30 seconds, the average looks lovely while five real customers waited half a minute. **Percentiles** fix this: `p95` means '95% of requests finished at least this fast' — the slowest 5% are excluded from the headline but can be charted. `p99` is stricter still, and the gap between `p50` (the median) and `p95` tells you how inconsistent the service is.\n\nRead a dashboard quickly: check the time range first (last 15 minutes or last 24 hours?), then the shape — flat is calm, a step change means something changed, a repeating sawtooth often means autoscaling or a scheduled job. A latency spike with a matching error-rate spike is an incident.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "A dashboard shows p95 latency of 800 ms. What does that mean?",
+          "options": [
+            "95% of requests finished in 800 ms or less; the slowest 5% took longer",
+            "Exactly 95 requests took 800 ms",
+            "The server was idle 95% of the time",
+            "95% of users rated the app as slow"
+          ],
+          "answer": 0,
+          "explain": "p95 is a percentile: it marks the point where 95% of requests are that fast or faster.",
+          "hint": "Percentiles describe the whole distribution, not a count of requests."
+        },
+        {
+          "type": "input",
+          "prompt": "Which of the four key metrics measures how many requests a service handles per second?",
+          "answers": ["throughput"],
+          "hint": "It sounds like how much traffic flows through the system.",
+          "explain": "Throughput is the request rate; latency is how long each takes, error rate is the failure share, saturation is how full resources are."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Average latency is a healthy 80 ms, yet customers complain about slowness. What is the likely explanation?",
+          "options": [
+            "Averages hide the slow tail — a small share of requests may be taking many seconds",
+            "The average was measured in the wrong units",
+            "The customers are looking at a different dashboard",
+            "Latency does not affect how fast anything feels"
+          ],
+          "answer": 0,
+          "explain": "A handful of very slow requests barely move the mean but ruin real sessions — check p95 and p99 instead.",
+          "hint": "Ask what the average is quietly leaving out."
+        },
+        {
+          "type": "order",
+          "prompt": "You have opened an unfamiliar dashboard during an incident. Put your reading steps in order",
+          "items": [
+            "Check the time range selected (last 15 minutes or last 24 hours?)",
+            "Find the error-rate chart and see exactly when it rose",
+            "Match that moment against latency and throughput charts",
+            "Look at saturation (CPU, memory, disk) to find the resource at its limit"
+          ],
+          "explain": "Range first, then when it broke, then what broke with it, then the resource that explains it all.",
+          "hint": "Never trust a chart before you know what window it is showing."
+        }
+      ]
+    },
+    {
+      "title": "Alerts That Help",
+      "body": "An **alert** fires when a metric crosses a line you care about. Two designs do the work. A **threshold** alert fires when a number passes a fixed value ('error rate above 5% for 5 minutes'). An **anomaly** alert fires when a metric departs from its own normal pattern, which catches problems a fixed line would miss at 3am, when normal traffic is near zero.\n\nAlerts are also ranked by how they interrupt you. A **page** wakes someone up — phone call, loud notification — and is reserved for real customer impact. A **ticket** alert lands in a queue and waits for business hours. Paging a person for a blip at 3am is how a team learns to ignore its own alerts: the slow death of any monitoring setup is **alert fatigue**, when people stop reading the noise.\n\nEvery alert should link to a **runbook** (often called a playbook): a short document saying what the alert means, how to confirm it, and the first three things to do — check the service, check the last deploy, check the dependency. A good alert answers 'what do I do now?' before you even click it.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is alert fatigue?",
+          "options": [
+            "Team members stop noticing alerts because too many fire and most are not urgent",
+            "The monitoring server runs out of memory",
+            "Alerts only fire during working hours",
+            "Metrics stop being collected by the agent"
+          ],
+          "answer": 0,
+          "explain": "Noise trains people to dismiss everything, so the one critical alert gets missed too.",
+          "hint": "It is about people, not about the monitoring tool itself."
+        },
+        {
+          "type": "input",
+          "prompt": "What short document explains what an alert means and the first steps to take when it fires? It is also called a playbook (one word)",
+          "answers": ["runbook", "a runbook"],
+          "hint": "It reads like instructions for running this part of the system.",
+          "explain": "A runbook turns an alert into an action: confirm, mitigate, escalate — without a meeting first."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which of these deserves a page that wakes someone at 3am?",
+          "options": [
+            "Checkout is failing for all customers",
+            "One server's disk has reached 70%",
+            "The weekly report finished successfully",
+            "A staging environment restarted"
+          ],
+          "answer": 0,
+          "explain": "Pages are for confirmed customer impact right now; everything else can arrive as a ticket.",
+          "hint": "Ask who is being harmed while everyone sleeps."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these alerting steps in order, from the metric moving to improving the alert",
+          "items": [
+            "The metric crosses its threshold or departs from its normal pattern",
+            "The alert fires and routes to the right person — page or ticket",
+            "The responder opens the linked runbook and confirms the problem",
+            "The responder fixes or mitigates the issue and posts an update",
+            "The team reviews whether the alert was useful and adjusts its threshold"
+          ],
+          "explain": "Fire, route, confirm, resolve, review — the final review step is what stops alerts rotting into noise.",
+          "hint": "Alerting is a loop, and it only works if someone closes it."
+        }
+      ]
+    },
+    {
+      "title": "Status Pages and Outage Comms",
+      "body": "When an outage is real, communication matters as much as the fix. Lead with an **impact statement**: say what customers cannot do, not what your internals are doing. 'Payments are failing for all customers since 17:40' is useful; 'the pod is CrashLoopBackOff' is not.\n\nA **status page** is the public, official record: a fixed set of components (API, Dashboard, Payments) marked Operational, Degraded, or Down. An **internal channel** (Slack, Teams) is for the responders. The rule is simple — anything a customer needs goes on the status page; anything responders need stays in the channel.\n\nKeep an **update cadence** and keep it boring. On a fixed rhythm, commonly every 30 minutes, post a short plain update even when nothing has changed: *investigating*, *identified*, *monitoring*, *resolved*. Silence is what makes people refresh the page and open duplicate tickets.\n\nThe hardest sentence is also the most honest: **no ETA**. 'We do not yet know the cause, so we cannot promise a fix time' earns more trust than a guess you will miss — a broken ETA costs more goodwill than the outage itself.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which of these is a proper customer-facing impact statement?",
+          "options": [
+            "Payments are failing for all customers since 17:40",
+            "The pod is in CrashLoopBackOff after the HPA scaled out",
+            "Kafka consumer lag is elevated on partition 3",
+            "We are running kubectl describe to investigate"
+          ],
+          "answer": 0,
+          "explain": "Customers need to know what they cannot do; internal jargon stays in the responder channel.",
+          "hint": "Read it as a customer: does it tell you whether your own task will work?"
+        },
+        {
+          "type": "order",
+          "prompt": "Put the customer-facing update sequence for an ongoing outage in order",
+          "items": [
+            "Investigating — we are aware and looking into it",
+            "Identified — we know the cause and are working on a fix",
+            "Monitoring — the fix is deployed and we are watching it",
+            "Resolved — service is back to normal"
+          ],
+          "explain": "These four states always come in this order, and each one should be posted on your fixed cadence.",
+          "hint": "Awareness, then cause, then fix, then confirmation."
+        },
+        {
+          "type": "input",
+          "prompt": "Customers are asking when it will be fixed and you genuinely do not know. What two-word phrase — an abbreviation you will say out loud — should you use instead of guessing?",
+          "answers": ["no eta"],
+          "hint": "It is short for estimated time of arrival.",
+          "explain": "'No ETA' plus the honest reason beats a timeline you will miss; promise an update time instead of a fix time."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Where should an update that customers need to see be posted?",
+          "options": [
+            "On the public status page; the internal channel is for responders only",
+            "Only in the internal Slack channel",
+            "As a tweet from the engineer's personal account",
+            "Nowhere until the fix has shipped"
+          ],
+          "answer": 0,
+          "explain": "The status page is the single official source customers are told to check; internal chatter stays internal.",
+          "hint": "Ask where a customer would be told to look."
+        }
+      ]
+    }
+  ]
+}

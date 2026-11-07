@@ -1,0 +1,488 @@
+{
+  "id": "shell",
+  "title": "Linux & the Command Line, In Depth",
+  "subtitle": "Weeks 1-2: navigate, inspect and shape a Linux box",
+  "color": "#3ee6ff",
+  "order": 11,
+  "description": "A deep, hands-on tour of the Linux shell for anyone heading into data or platform work: the filesystem, permissions, searching, pipes, text processing with sed/awk, and processes, services and cron.",
+  "lessons": [
+    {
+      "title": "Getting Around the Filesystem",
+      "body": "When you log in to a Linux machine you land in the **shell**, a program that reads the text you type and asks the kernel to carry it out. Bash is the default on almost every server. Everything on the machine lives in one tree that starts at the **root directory** `/`, so a path is simply a route through that tree: `/etc/nginx/nginx.conf` walks from the root down to a config file.\n\nTwo commands answer \"where am I?\" and \"what is here?\":\n\n```bash\npwd          # print working directory: the full, absolute path you are in\nls           # list the current directory\nls -la       # long listing: permissions, owner, size, and hidden dotfiles\n```\n\n`cd` changes directory. A path beginning with `/` is **absolute** and always means the same thing; a path that does not is **relative** and is resolved from where you currently stand. Three shorthands save typing: `cd ~` goes home, `cd ..` goes up one level, and `cd -` jumps back to the previous directory.\n\n```bash\ncd /var/log   # absolute path\ncd nginx      # relative: lands in /var/log/nginx if you were in /var/log\n```\n\nThe **Filesystem Hierarchy Standard** gives the top-level directories agreed roles, and knowing them tells you where to look:\n\n| Path | Holds |\n| --- | --- |\n| `/etc` | system-wide configuration files |\n| `/var` | variable data: logs, spools, caches (`/var/log` especially) |\n| `/home` | each user's personal files |\n| `/usr` | installed programs and their libraries |\n| `/tmp` | temporary files, often cleared on reboot |\n\nWhen you forget a command's flags, read the manual with `man ls` (quit with `q`); `man -k keyword` searches the descriptions.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "You need to find where a service's configuration lives. Which directory is the standard home for system-wide configuration files?",
+          "options": [
+            "/etc",
+            "/var",
+            "/home",
+            "/tmp"
+          ],
+          "answer": 0,
+          "explain": "The Filesystem Hierarchy Standard reserves /etc for configuration; /var holds logs and other changing data.",
+          "hint": "It is short for 'editable text configuration'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the single command that lists the current directory in long format, including hidden dotfiles (both needed flags)",
+          "answers": [
+            "ls -la",
+            "ls -al",
+            "ls -l -a",
+            "ls -a -l"
+          ],
+          "hint": "-l for long format, -a for all files (dotfiles included).",
+          "explain": "ls -la combines both flags, so you see permissions and sizes and every hidden file."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that opens the manual page for `ls`",
+          "answers": [
+            "man ls"
+          ],
+          "hint": "Three letters, short for manual.",
+          "explain": "man ls shows every flag for ls; press q to leave the pager."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a short Markdown cheat-sheet for a new colleague: include at least one heading, a fenced code block that contains `pwd`, and a mention of the `/etc` directory.",
+          "patterns": [
+            {
+              "re": "^#{1,6}\\s+\\S",
+              "m": "a Markdown heading (a line starting with #)"
+            },
+            {
+              "re": "```[\\s\\S]*?pwd",
+              "m": "a fenced code block containing pwd"
+            },
+            {
+              "re": "/etc\\b",
+              "m": "a mention of the /etc directory"
+            }
+          ],
+          "solution": "# Shell cheat-sheet\n\nGet your bearings in the filesystem:\n\n```bash\npwd\nls -la\ncd /var/log\n```\n\nSystem configuration lives in `/etc`; logs live in `/var/log`.\n",
+          "explain": "A heading, a fenced block and an /etc reference make a cheat-sheet a colleague can actually use.",
+          "hint": "Start with a # heading, wrap your command in three backticks, and name /etc somewhere."
+        }
+      ]
+    },
+    {
+      "title": "Files, Links and Directories",
+      "body": "Creating and reshaping files is mostly a handful of verbs. `touch` makes an empty file, or updates the timestamp on one that already exists. `mkdir` makes a directory, and `-p` means \"create any missing parents and do not error if it already exists\" — which is why scripts always use it:\n\n```bash\ntouch notes.txt\nmkdir -p /srv/app/releases/2026-10\n```\n\n`cp` copies and `mv` moves. There is no separate rename command: moving a file to a new name is how you rename it. Copying a directory needs `-r` (recursive), and `-a` additionally preserves permissions, ownership and timestamps — the choice for backups:\n\n```bash\ncp -r src/ backup/\ncp -a /srv/app /srv/app.bak\nmv notes.txt archive/notes-2026.txt\n```\n\n`rm` deletes, permanently. There is **no rubbish bin**, so read the path twice before you press Enter. `rm -r dir` removes a directory and its contents, and `-f` forces it through without prompting. The classic disaster is a stray space turning `rm -rf /tmp/build` into `rm -rf /tmp /build`.\n\n**Links** give one set of bytes a second name. A **hard link** points at the same inode — the file's true identity — so both names are equal and either can be deleted without losing the data; it cannot cross filesystems or point at a directory. A **symbolic link** (symlink) is a tiny file that stores a *path*, like a shortcut, and can point anywhere:\n\n```bash\nln report.csv report-hard.csv      # hard link: same inode\nln -s /srv/app/releases/2026-10 /srv/app/current   # symlink: a pointer\n```\n\nSymlinks are how deployments flip `current` to a new release in one atomic step.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which command both moves a file and renames it?",
+          "options": [
+            "mv",
+            "cp",
+            "ln",
+            "touch"
+          ],
+          "answer": 0,
+          "explain": "There is no separate rename command in Unix: mv to a new name in the same directory is a rename.",
+          "hint": "It is short for move."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that creates the directory `/srv/app/releases`, creating any missing parent directories and not failing if it already exists",
+          "answers": [
+            "mkdir -p /srv/app/releases",
+            "mkdir -p /srv/app/releases/"
+          ],
+          "hint": "One flag tells mkdir to make parents and be quiet if present.",
+          "explain": "mkdir -p is idempotent and creates parents, which is why scripts rely on it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which statement about links is correct?",
+          "options": [
+            "A symbolic link stores a path and can point at a directory; a hard link shares an inode and cannot",
+            "A hard link can point at a directory",
+            "A symlink shares the same inode as its target",
+            "Both hard and symbolic links can cross filesystems"
+          ],
+          "answer": 0,
+          "explain": "Hard links share the inode and may not target directories or cross filesystems; symlinks are just paths and can do both.",
+          "hint": "One of them is a tiny file holding a path."
+        },
+        {
+          "type": "order",
+          "prompt": "You are deploying a new release. Put the steps in the order they should run",
+          "items": [
+            "Build the new release into /srv/app/releases/2026-10",
+            "Copy the code there with cp -a so permissions are preserved",
+            "Point the symlink /srv/app/current at the new release with ln -sfn",
+            "Confirm with ls -l /srv/app that current now points at 2026-10"
+          ],
+          "explain": "Prepare the directory, populate it, atomically flip the symlink, then verify — a reader never sees a half-built release.",
+          "hint": "You cannot point current at a release before that release exists."
+        }
+      ]
+    },
+    {
+      "title": "Permissions and Ownership",
+      "body": "Every file has an **owner** and a **group**, and three sets of permissions — for the owner (`u`), the group (`g`) and everyone else (`o`). Each set can allow **read** (`r`), **write** (`w`) and **execute** (`x`). `ls -l` shows them as a ten-character string:\n\n```text\n-rwxr-xr--  1 deploy deploy  1820 Oct 17 12:00 start.sh\n```\n\nThe first character is the type (`-` file, `d` directory, `l` symlink); the next nine are three `rwx` triples for user, group and others. Here the owner can read, write and run the script, the group can read and run it, and everyone else can only read it.\n\nOctal notation turns each triple into a digit: read = 4, write = 2, execute = 1, added together. So `rwx` = 7, `r-x` = 5 and `r--` = 4.\n\n```bash\nchmod 755 start.sh     # owner rwx, group r-x, others r-x\nchmod 644 config.yml   # owner rw-, group r--, others r-- (normal for files)\nchmod 600 id_rsa       # owner only — secrets should be exactly this\n```\n\nSymbolic mode edits one set at a time and reads more clearly in a script: `chmod u+x start.sh` adds execute for the owner, `chmod go-w file` removes group and other write, and `chmod a+r file` adds read for all.\n\n`chown` changes ownership (`chown app:app data/`, with `-R` for a whole tree), which normally needs root. Finally, **umask** is the mask defining the permissions new files start *without*: a umask of `022` gives new files `644` and new directories `755`. Directories also need `x` to be entered, which is why their bits differ from files.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What permissions does `chmod 644 config.yml` set?",
+          "options": [
+            "Owner read+write; group and others read only",
+            "Everyone read, write and execute",
+            "Owner only read and write",
+            "Owner execute only"
+          ],
+          "answer": 0,
+          "explain": "6 = read+write (4+2) for the owner, and 4 = read for group and others: the normal mode for a config file.",
+          "hint": "Add the digits: 4 is read, 2 is write, 1 is execute."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that lets only the owner read and write `app.key`, with nobody else getting any access",
+          "answers": [
+            "chmod 600 app.key",
+            "chmod 0600 app.key"
+          ],
+          "hint": "Owner gets 6, group and others get 0.",
+          "explain": "chmod 600 is the standard mode for private keys and secret files."
+        },
+        {
+          "type": "input",
+          "prompt": "Using symbolic mode, write the command that adds execute permission for the owner of `deploy.sh`",
+          "answers": [
+            "chmod u+x deploy.sh",
+            "chmod u+x ./deploy.sh",
+            "chmod +x deploy.sh"
+          ],
+          "hint": "u is the owner and +x adds execute.",
+          "explain": "chmod u+x changes only the owner's execute bit, leaving every other bit untouched."
+        },
+        {
+          "type": "mcq",
+          "prompt": "A server has umask 022. What permissions will a newly created regular file receive?",
+          "options": [
+            "644",
+            "755",
+            "600",
+            "777"
+          ],
+          "answer": 0,
+          "explain": "The default file mode 666 has the umask bits removed: 666 minus 022 = 644. Directories start at 777 and become 755.",
+          "hint": "Start from 666 for files and subtract the umask."
+        }
+      ]
+    },
+    {
+      "title": "Reading and Searching Files",
+      "body": "`cat` dumps a file straight to your terminal. That is perfect for a two-line config and painful for a two-gigabyte log, because the whole thing scrolls past. When a file might be big, page through it with `less`:\n\n```bash\nless /var/log/syslog\n```\n\nInside `less`, move with the arrows or space bar, search with `/pattern` (press `n` for the next hit) and quit with `q`. It only loads what it needs.\n\nThe two ends of a file are where the interesting parts usually are. `head` reads the top (great for learning a log's format) and `tail` reads the bottom (great for what just happened). Add `-f` and tail **follows** the file, printing new lines as they are written — the fastest way to watch a request land while you reproduce a bug:\n\n```bash\nhead -n 20 app.log      # first 20 lines\ntail -n 100 app.log     # last 100 lines\ntail -f app.log         # live stream; Ctrl+C to stop\nwc -l app.log           # count the lines\n```\n\n`grep` searches inside files and is the workhorse of log triage. The flags worth memorising are `-i` (ignore case), `-n` (show line numbers), `-r` (search a whole directory tree), `-v` (invert: show lines that do *not* match) and `-E` (extended regex, for `|` alternation and `+`).\n\n```bash\ngrep -in \"timeout\" app.log           # case-insensitive, with line numbers\ngrep -r \"OutOfMemory\" /var/log/      # every file under /var/log\ngrep -v \"^#\" nginx.conf              # the config without comments\ngrep -E \"error|fail\" app.log         # either word\n```\n\nQuote patterns, especially ones with spaces or symbols, so the shell hands them to grep untouched.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which tool is best for opening a very large log file to search interactively?",
+          "options": [
+            "less",
+            "cat",
+            "echo",
+            "touch"
+          ],
+          "answer": 0,
+          "explain": "less loads lazily and supports searching with /pattern, so a huge file stays responsive.",
+          "hint": "It was designed as the 'pager'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that follows `app.log` live, printing new lines as they are appended",
+          "answers": [
+            "tail -f app.log"
+          ],
+          "hint": "tail with the flag meaning follow.",
+          "explain": "tail -f keeps the file open and echoes new lines, so you can watch a request arrive in real time."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that searches `app.log` for `timeout`, ignoring case, and shows line numbers",
+          "answers": [
+            "grep -in timeout app.log",
+            "grep -ni timeout app.log"
+          ],
+          "hint": "grep with -i for case and -n for numbers, then the pattern and file.",
+          "explain": "grep -in matches timeout/Timeout/TIMEOUT and prefixes each hit with its line number."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that shows only the lines of `nginx.conf` that do NOT start with a `#` comment",
+          "answers": [
+            "grep -v ^# nginx.conf",
+            "grep -v \"^#\" nginx.conf",
+            "grep -v '^#' nginx.conf"
+          ],
+          "hint": "grep with -v inverts the match; the pattern is ^#.",
+          "explain": "grep -v prints lines that do not match, so anchoring ^# removes the comment lines and leaves the real config."
+        }
+      ]
+    },
+    {
+      "title": "Finding Files",
+      "body": "`grep` finds text *inside* files; `find` finds the files themselves by walking a directory tree and testing each entry against the expressions you give it. The tests you will use most are name, type, size and age.\n\n```bash\nfind /var/log -name \"*.log\"                 # by name (quote the glob!)\nfind /etc -type d -name \"nginx*\"            # only directories\nfind / -type f -size +100M 2>/dev/null      # files larger than 100 MB\nfind /var/log -name \"*.log\" -mtime -1       # modified in the last 24 hours\nfind /home -type f -mmin -30                # modified in the last 30 minutes\n```\n\nAge tests are signed in a way that trips people up: `-mtime -1` means *less than* one day ago (recent), `+7` means *more than* seven days ago (old), and an unsigned `7` would mean exactly seven. `-mmin` works the same way in minutes. Always quote glob patterns like `\"*.log\"` so the shell does not expand them before `find` sees them.\n\n`-exec` runs a command on each match. `{}` stands for the file and `\\;` ends the command (quote it, or the shell will eat it):\n\n```bash\nfind /srv/app -name \"*.tmp\" -exec rm {} \\;            # delete each temporary file\nfind /data -type f -name \"*.csv\" -exec gzip {} \\;     # compress each CSV\n```\n\nBecause `find` can act on thousands of files at once, run the search *without* `-exec` first and only then add the action.\n\n`locate` is the fast alternative: it searches a pre-built index (refreshed by `updatedb`) and returns instantly, but it can be out of date and, unlike `find`, cannot filter by size or age.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does `find /var/log -name \"*.log\" -mtime -1` return?",
+          "options": [
+            "Log files modified less than 24 hours ago",
+            "Log files older than one day",
+            "Exactly one log file",
+            "All log files, regardless of age"
+          ],
+          "answer": 0,
+          "explain": "A negative age means less than that period ago, so -mtime -1 is everything touched in the last day.",
+          "hint": "A minus sign means 'less than'."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that finds regular files larger than 100 MB under `/data`",
+          "answers": [
+            "find /data -type f -size +100M",
+            "find /data -size +100M -type f",
+            "find /data -type f -size +100m",
+            "find /data -size +100m -type f"
+          ],
+          "hint": "-type f for regular files and -size +100M for bigger than 100 MB.",
+          "explain": "find /data -type f -size +100M walks the tree and lists only big regular files — the first step when a disk fills up."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that finds every `.sh` file under `/opt` and runs `chmod +x` on each using `-exec`",
+          "answers": [
+            "find /opt -name \"*.sh\" -exec chmod +x {} \\;",
+            "find /opt -name *.sh -exec chmod +x {} \\;"
+          ],
+          "hint": "The placeholder is {} and the command ends with an escaped semicolon.",
+          "explain": "-exec runs the command once per match; {} is the filename and the escaped ; terminates the command."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which command searches a pre-built index and returns results almost instantly?",
+          "options": [
+            "locate",
+            "find",
+            "grep -r",
+            "ls"
+          ],
+          "answer": 0,
+          "explain": "locate reads the mlocate database (refreshed by updatedb) rather than walking the tree, so it is immediate but may be stale.",
+          "hint": "Its name sounds like 'where is it located'."
+        }
+      ]
+    },
+    {
+      "title": "Redirection and Pipes",
+      "body": "Every process starts with three open channels: **standard input** (stdin, fd 0), **standard output** (stdout, fd 1) and **standard error** (stderr, fd 2). Normally both output channels go to your screen. Redirection lets you steer them into files or other commands.\n\n`>` writes stdout to a file, **overwriting** it; `>>` appends instead. The single `>` is a common way to destroy a file by accident, so prefer `>>` when adding to logs:\n\n```bash\nls -l /var/log > listing.txt     # overwrite listing.txt with the output\necho \"run started\" >> run.log    # append one line\n```\n\nErrors go to stderr, so `>` alone will not capture them. Redirect stderr with `2>`, and use `2>&1` to send stderr wherever stdout is going — order matters, so `> out.log 2>&1` captures everything:\n\n```bash\ngrep ERROR app.log > matches.txt 2> grep-errors.txt\nmake > build.log 2>&1            # normal output and errors into one file\n```\n\n`/dev/null` is the wastebasket: `command 2>/dev/null` silently discards errors.\n\nThe **pipe** `|` connects stdout of one command to stdin of the next, so you compose small tools into a pipeline instead of one giant program:\n\n```bash\nps aux | grep nginx\ngrep -i error app.log | wc -l\n```\n\nBecause a pipe sends only stdout, stderr still spills to the screen — often exactly what you want while debugging. Finally, `tee` writes its input to **both** a file and the screen, so you can watch a command *and* keep a log. `tee -a` appends, and `2>&1 | tee build.log` captures errors too.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between `>` and `>>`?",
+          "options": [
+            "`>` overwrites the file; `>>` appends to it",
+            "`>>` overwrites the file; `>` appends to it",
+            "Both append to the file",
+            "Both overwrite the file"
+          ],
+          "answer": 0,
+          "explain": "A single > truncates the target; >> adds to the end. This is why >> is safer for logs.",
+          "hint": "The doubled arrow adds rather than replaces."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the redirection that runs `make` and captures BOTH its standard output and its standard error into `build.log`",
+          "answers": [
+            "make > build.log 2>&1",
+            "make &> build.log",
+            "make >build.log 2>&1"
+          ],
+          "hint": "Send stdout to the file, then point file descriptor 2 at fd 1.",
+          "explain": "make > build.log 2>&1 sends stdout to the file and stderr to the same place, giving you one complete log."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that appends the line `deploy complete` to `deploy.log`",
+          "answers": [
+            "echo \"deploy complete\" >> deploy.log",
+            "echo deploy complete >> deploy.log",
+            "echo 'deploy complete' >> deploy.log"
+          ],
+          "hint": "echo the text, then append with >>.",
+          "explain": "echo with >> adds one line to the log without destroying what is already there."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Which command sends its output to a file while also showing it on screen?",
+          "options": [
+            "tee",
+            "cat",
+            "grep",
+            "less"
+          ],
+          "answer": 0,
+          "explain": "tee splits its input: one stream to stdout and one to the file. Use tee -a to append.",
+          "hint": "It is named after the T-shaped plumbing joint."
+        }
+      ]
+    },
+    {
+      "title": "Text Processing I: cut, sort, uniq, tr, xargs",
+      "body": "`cut`, `sort`, `uniq`, `tr` and `xargs` are the small, well-behaved tools that turn raw text into answers.\n\n`cut` pulls out columns. `-d` sets the delimiter and `-f` chooses fields (counting from 1), or `-c` cuts by character position:\n\n```bash\ncut -d: -f1 /etc/passwd        # the usernames (everything before the first :)\ncut -d, -f1,3 sales.csv        # columns 1 and 3 of a CSV\n```\n\n`sort` orders lines alphabetically (`-n` for numeric, `-r` to reverse, `-k2` by the second field, `-h` for human sizes like `2.1G`). `uniq` collapses **adjacent** duplicates, so it is always paired with a preceding `sort`; `uniq -c` adds a count and `uniq -d` shows only the repeated lines:\n\n```bash\ncut -d\" \" -f1 access.log | sort | uniq -c | sort -rn | head\n```\n\nThat one pipeline answers \"which IPs hit us most?\" — cut the first field, group identical lines, count them, rank by count, show the top ten.\n\n`tr` translates or deletes characters and reads/writes only stdin/stdout, never filenames: `tr a-z A-Z` upper-cases text, and `tr -d '\\r'` strips Windows carriage returns, a frequent fix when a CSV arrives from a Windows machine.\n\n`xargs` turns lines of input into **arguments** for another command. It is how you feed the output of `find` or `grep -l` into tools that expect filenames, and `-I {}` lets you place the argument anywhere:\n\n```bash\ngrep -rl \"TODO\" src/ | xargs wc -l\nfind . -name \"*.bak\" | xargs -I {} mv {} /tmp/archive/\n```\n\nRemember `xargs` splits on whitespace, so quote names with spaces or use `-0` together with `find -print0`.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Why must you `sort` before you `uniq`?",
+          "options": [
+            "uniq only collapses duplicate lines that are adjacent",
+            "uniq needs the input to be numeric",
+            "sort removes blank lines first",
+            "uniq refuses to read unsorted input"
+          ],
+          "answer": 0,
+          "explain": "uniq compares each line to the one before it, so identical lines must be sitting together; sort arranges that.",
+          "hint": "uniq looks at neighbours, not the whole file."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that prints the usernames from `/etc/passwd`, one per line (the file uses `:` as its delimiter)",
+          "answers": [
+            "cut -d: -f1 /etc/passwd"
+          ],
+          "hint": "cut with the delimiter flag and field 1.",
+          "explain": "cut -d: -f1 takes the first colon-separated field of every line, which is the username."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that upper-cases the contents of `names.txt` using `tr`",
+          "answers": [
+            "tr a-z A-Z < names.txt",
+            "cat names.txt | tr a-z A-Z"
+          ],
+          "hint": "tr translates character ranges and reads from stdin, so feed it the file with <.",
+          "explain": "tr a-z A-Z maps every lower-case letter to its upper-case equivalent."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this pipeline in the order the data flows, producing a ranked list of the most frequent client IPs",
+          "items": [
+            "cut -d\" \" -f1 access.log   (take the client IP column)",
+            "sort                        (group identical addresses together)",
+            "uniq -c                     (count each group)",
+            "sort -rn                    (largest count first)"
+          ],
+          "explain": "Extract, group, count, rank: the same shape solves 'which X appears most often?' for any field.",
+          "hint": "You cannot count duplicates until they are adjacent, and you cannot rank until you have counts."
+        }
+      ]
+    },
+    {
+      "title": "Text Processing II: sed and awk",
+      "body": "`sed` is the **stream editor**: it reads input line by line and can substitute, delete or print. Its most common form by far is substitution, `s/find/replace/`:\n\n```bash\nsed 's/foo/bar/' file        # replace the first 'foo' on each line\nsed 's/foo/bar/g' file       # replace every 'foo' (g = global)\nsed -n '5,10p' file          # print only lines 5 to 10\nsed '/^#/d' file             # delete comment lines\n```\n\nBy default `sed` prints the result to stdout and leaves the file untouched — safe to experiment. Add `-i` to edit **in place**, and `-i.bak` to keep a backup first: `sed -i.bak 's/localhost/db.internal/g' config.yml`. Because `/` is the delimiter, a substitution full of slashes gets ugly; choose another delimiter instead: `sed 's#/old/path#/new/path#g'`.\n\n`awk` is a tiny programming language built for **column-oriented** text. It splits each line into fields `$1`, `$2`, … by whitespace (or by `-F` when you set another separator) and runs your program once per line. `$0` is the whole line and `NR` is the line number:\n\n```bash\nawk '{print $1}' access.log                        # first column\nawk -F: '{print $1, $7}' /etc/passwd               # username and shell\nawk '$9 == 500 {print $7}' access.log              # URLs that returned 500\nawk '{sum += $10} END {print sum}' access.log      # total bytes served\n```\n\nRules run for every line; `END { ... }` runs once at the finish, which is how you total a column. The `awk '$9 == 500 { ... }'` pattern is the classic one-liner for \"show me the requests that failed\".",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does the `g` in `sed 's/a/b/g'` change?",
+          "options": [
+            "It replaces every match on each line, not just the first",
+            "It applies the change to every file in the directory",
+            "It runs sed as root",
+            "It deletes lines containing a"
+          ],
+          "answer": 0,
+          "explain": "Without g, sed substitutes only the first occurrence per line; g makes the substitution global across that line.",
+          "hint": "g stands for global."
+        },
+        {
+          "type": "input",
+          "prompt": "Write a sed command that replaces every `localhost` with `db.internal` in `config.yml`, editing the file in place and keeping a `.bak` backup",
+          "answers": [
+            "sed -i.bak 's/localhost/db.internal/g' config.yml",
+            "sed -i.bak \"s/localhost/db.internal/g\" config.yml"
+          ],
+          "hint": "Use -i.bak for in-place editing with a backup, then the s///g expression and the file.",
+          "explain": "-i edits the file itself; the .bak suffix saves the original first, so the change is reversible."
+        },
+        {
+          "type": "input",
+          "prompt": "Write an awk command that prints only the first whitespace-separated field of `access.log`",
+          "answers": [
+            "awk '{print $1}' access.log",
+            "awk \"{print $1}\" access.log"
+          ],
+          "hint": "awk programs are wrapped in braces; $1 is the first field.",
+          "explain": "awk splits each line on whitespace and runs print $1 for every line, giving you the first column."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In awk, what does the `END { ... }` block do?",
+          "options": [
+            "It runs once, after all input lines have been processed",
+            "It runs once before the first line",
+            "It runs for every line",
+            "It deletes the file at the end"
+          ],
+          "answer": 0,
+          "explain": "BEGIN runs before any input and END runs after the last line, which is how you print a total or a summary.",
+          "hint": "Think of it as the closing ceremony."
+        }
+      ]
+    },
+    {
+      "title": "Processes, Services and Cron",
+      "body": "A **process** is any running program and each has a **PID**. `ps aux` prints a snapshot of every process with its user, PID, CPU and memory use and the command line; `top` (or the friendlier `htop`) gives a live, refreshing view — quit with `q`.\n\n```bash\nps aux | grep nginx        # find a process by name\ntop                        # live view, sorted by CPU by default\nuptime                     # load average over 1, 5 and 15 minutes\n```\n\nWhen something is stuck, `kill PID` sends **SIGTERM**, a polite request to shut down and clean up. If the process ignores it, `kill -9 PID` sends **SIGKILL**, which cannot be caught — a last resort, because it skips cleanup. `pkill name` kills by name, but confirm the PID with `ps` first. **nice** and **renice** adjust scheduling priority (a lower value gets more CPU): `nice -n 10 ./big-job.sh` starts something politely at low priority.\n\nOn modern Linux, daemons are managed by **systemd**. `systemctl` starts, stops and inspects services, and `journalctl` reads their logs:\n\n```bash\nsystemctl status nginx          # active (running) or failed?\nsudo systemctl restart nginx    # bounce the service\njournalctl -u nginx --since \"10 min ago\" -f\n```\n\nFor repeating work you use **cron**. `crontab -e` opens your user's schedule; each line has five time fields (minute, hour, day, month, weekday) then the command. `*` means \"every\", and `*/5` means \"every 5\":\n\n```bash\n# m h dom mon dow  command\n0 2 * * *   /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1\n*/5 * * * * /usr/local/bin/healthcheck.sh\n```\n\nThe first line runs at 02:00 daily — redirecting output to a log, because cron mails output away and you would otherwise never see it.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between `kill PID` and `kill -9 PID`?",
+          "options": [
+            "kill asks politely with SIGTERM; -9 forces SIGKILL with no cleanup",
+            "-9 is the polite signal and kill is the forceful one",
+            "They are identical in effect",
+            "kill -9 restarts the process"
+          ],
+          "answer": 0,
+          "explain": "SIGTERM can be caught so the process cleans up; SIGKILL cannot be ignored and should be a last resort.",
+          "hint": "Try the request before the demand."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the systemctl command that shows the current status of the `nginx` service",
+          "answers": [
+            "systemctl status nginx"
+          ],
+          "hint": "systemctl, then the reporting subcommand, then the service name.",
+          "explain": "systemctl status nginx reports active (running), failed or stopped, plus the most recent log lines."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the journalctl command that shows the logs for the `nginx` service and follows new entries live",
+          "answers": [
+            "journalctl -u nginx -f",
+            "journalctl -f -u nginx"
+          ],
+          "hint": "-u selects the systemd unit and -f follows, just like tail -f.",
+          "explain": "journalctl -u nginx -f streams nginx's service logs, the systemd equivalent of tail -f."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In the crontab line `0 2 * * * /usr/local/bin/backup.sh`, when does the job run?",
+          "options": [
+            "Every day at 02:00",
+            "Every two minutes",
+            "At midnight on the 2nd of the month",
+            "Every two hours"
+          ],
+          "answer": 0,
+          "explain": "The five fields are minute, hour, day, month and weekday: minute 0 of hour 2, every day, hence 02:00 daily.",
+          "hint": "The fields are minute then hour."
+        }
+      ]
+    }
+  ]
+}

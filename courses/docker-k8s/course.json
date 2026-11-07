@@ -1,0 +1,414 @@
+{
+  "id": "docker-k8s",
+  "title": "Docker & Kubernetes Essentials",
+  "subtitle": "Weeks 23-25: package and run services anywhere",
+  "color": "#2496ed",
+  "order": 21,
+  "description": "Containerise applications and run them on a cluster: images vs containers, writing Dockerfiles, volumes and networking, Docker Compose for multi-service stacks, then Kubernetes pods, deployments, services, config, storage and Helm.",
+  "lessons": [
+    {
+      "title": "Images and Containers",
+      "body": "A **container** is a running process that believes it has the whole machine to itself. It is isolated using Linux namespaces (what it can see) and cgroups (what it can use), but it shares the host kernel — that is why containers start in milliseconds while a virtual machine boots an entire operating system.\n\nAn **image** is the read-only template; a container is a running instance of it. Images are built in **layers**: each instruction adds a layer, and unchanged layers are cached and shared between images, so pulling your app only downloads what is new.\n\nImages live in a **registry** such as Docker Hub or GitHub Container Registry. They are named `registry/namespace/name:tag`, for example `nginx:1.27` or `ghcr.io/acme/api:v2`.\n\n```\ndocker run -d -p 8080:80 --name web nginx:1.27   # start, detached, publish a port\ndocker ps                                         # running containers\ndocker ps -a                                      # include stopped ones\ndocker logs web                                   # stdout/stderr of PID 1\ndocker exec -it web sh                            # shell inside the container\ndocker stop web && docker rm web                  # stop, then remove\ndocker images                                     # local images\ndocker pull postgres:16 && docker push myimage    # move images via a registry\n```\n\nContainer filesystem changes vanish when the container is removed unless you use a volume (Lesson 3). Treat containers as disposable: stop them, throw them away, and start a fresh one from the image.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the relationship between an image and a container?",
+          "options": [
+            "An image is a read-only template; a container is a running instance of it",
+            "A container is a template; an image is a running copy",
+            "They are two names for the same thing",
+            "An image only exists inside a running container"
+          ],
+          "answer": 0,
+          "hint": "One is the recipe, the other is the cake you can start and stop.",
+          "explain": "You build an image, then create one or more containers from it."
+        },
+        {
+          "type": "mcq",
+          "prompt": "Why do containers usually start faster than virtual machines?",
+          "options": [
+            "They share the host kernel instead of booting a full operating system",
+            "They do not use any isolation",
+            "They always run without a filesystem",
+            "They are written in a faster language"
+          ],
+          "answer": 0,
+          "hint": "Think about what a VM has to boot that a container does not.",
+          "explain": "Containers are isolated processes on the host kernel, so there is no guest OS to boot."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the docker run flag pair that publishes host port 8080 to container port 80",
+          "answers": [
+            "-p 8080:80",
+            "--publish 8080:80",
+            "-p8080:80"
+          ],
+          "hint": "The short flag is -p, and the order is host:container.",
+          "explain": "-p 8080:80 maps host port 8080 to port 80 inside the container."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the typical container lifecycle commands in the correct order",
+          "items": [
+            "docker pull nginx:1.27",
+            "docker run -d --name web nginx:1.27",
+            "docker exec -it web sh",
+            "docker stop web",
+            "docker rm web"
+          ],
+          "explain": "Pull the image, run a container, work inside it, stop it, then remove it.",
+          "hint": "You fetch the image before you can run it, and clean up last."
+        }
+      ]
+    },
+    {
+      "title": "The Dockerfile",
+      "body": "A **Dockerfile** is a recipe that builds an image. Instructions run top to bottom, and each one creates a layer.\n\n```dockerfile\nFROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY . .\nENV NODE_ENV=production\nEXPOSE 3000\nCMD [\"node\", \"server.js\"]\n```\n\n`FROM` sets the base image. `WORKDIR` sets the directory used by later instructions and the container. `COPY` brings files in. `RUN` executes a command *at build time* and bakes the result into a layer. Copying `package*.json` before `COPY . .` lets Docker reuse the cached dependency layer when only your source changes.\n\n`CMD` gives the default command, which the user can override (`docker run img bash`). `ENTRYPOINT` sets a fixed executable, with `CMD` supplying default arguments — use ENTRYPOINT for tools and CMD for apps. Prefer the **exec form** (`[\"node\",\"server.js\"]`) so signals reach your process for a clean shutdown.\n\n**Multistage builds** keep images small by compiling in one stage and copying only the artefacts into the final stage:\n\n```dockerfile\nFROM golang:1.22 AS build\nWORKDIR /src\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api\n\nFROM gcr.io/distroless/static\nCOPY --from=build /out/api /api\nENTRYPOINT [\"/api\"]\n```\n\nPut the lines that change least at the top, and add a `.dockerignore` so `node_modules` and `.git` stay out of the build context.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between RUN and CMD in a Dockerfile?",
+          "options": [
+            "RUN executes at build time; CMD sets the default command at container start",
+            "RUN sets the default command; CMD runs at build time",
+            "They are identical",
+            "RUN only copies files; CMD only installs packages"
+          ],
+          "answer": 0,
+          "hint": "One bakes a layer into the image, the other starts the process.",
+          "explain": "RUN runs during the build and is baked in; CMD declares what runs when the container starts."
+        },
+        {
+          "type": "mcq",
+          "prompt": "When would you use ENTRYPOINT instead of CMD?",
+          "options": [
+            "When the container should always run one fixed executable",
+            "When you want the default command to be easily overridden",
+            "When you need to set environment variables",
+            "When you need to install packages"
+          ],
+          "answer": 0,
+          "hint": "One of them is hard to override.",
+          "explain": "ENTRYPOINT fixes the executable; CMD (which users can override) supplies its default arguments."
+        },
+        {
+          "type": "md",
+          "prompt": "Write a small Dockerfile for a Node.js app whose entry point is `server.js` and which listens on port 3000. Use an official Node base image, set a working directory, copy the app in, expose the port, and start the app with an exec-form command.",
+          "patterns": [
+            {
+              "re": "^FROM\\s+node",
+              "m": "start FROM an official Node base image"
+            },
+            {
+              "re": "^WORKDIR\\s+\\S+",
+              "m": "set a WORKDIR"
+            },
+            {
+              "re": "^COPY\\s+\\S+",
+              "m": "COPY the application files in"
+            },
+            {
+              "re": "^EXPOSE\\s+3000",
+              "m": "EXPOSE port 3000"
+            },
+            {
+              "re": "^(CMD|ENTRYPOINT)\\s+\\[",
+              "m": "start the app with an exec-form CMD or ENTRYPOINT"
+            }
+          ],
+          "solution": "FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY . .\nEXPOSE 3000\nCMD [\"node\", \"server.js\"]",
+          "explain": "Order matters: copy the package manifest and install dependencies before copying source, so Docker caches the dependency layer.",
+          "hint": "FROM → WORKDIR → COPY → RUN → COPY → EXPOSE → CMD."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these Dockerfile instructions into a sensible build order",
+          "items": [
+            "FROM node:20-alpine",
+            "WORKDIR /app",
+            "COPY package*.json ./",
+            "RUN npm ci --omit=dev",
+            "COPY . .",
+            "CMD [\"node\", \"server.js\"]"
+          ],
+          "explain": "Base, directory, dependency manifest, install, then source and start command — this maximises layer caching.",
+          "hint": "Install dependencies before copying the rest of the source."
+        }
+      ]
+    },
+    {
+      "title": "Volumes, Networks and Configuration",
+      "body": "Containers are ephemeral, so data that must survive belongs in a **volume**. Docker offers two kinds of mount:\n\n- A **named volume** (`docker volume create dbdata` then `-v dbdata:/var/lib/postgresql/data`) is a Docker-managed directory, ideal for databases.\n- A **bind mount** (`-v $(pwd)/src:/app/src`) points at a folder on the host, ideal for live-reloading source during development.\n\n```\ndocker volume create dbdata\ndocker run -d -v dbdata:/var/lib/postgresql/data postgres:16\ndocker run -d -v $(pwd)/html:/usr/share/nginx/html nginx\ndocker network create appnet\ndocker run -d --network appnet --name db postgres:16\ndocker run -d --network appnet --name api -e DB_HOST=db app-demo\ndocker exec api env | grep DB_\n```\n\nOn a user-defined **bridge network**, containers reach each other by **name**: the `api` container connects to `db:5432` because Docker's embedded DNS resolves `db` to its IP. This is why the hostname is a service name, not `localhost`. The default bridge does *not* provide this name resolution, so always create your own network.\n\nConfiguration travels as **environment variables** with `-e KEY=value` (or `--env-file`). Keep secrets out of images and out of your shell history.\n\n`-p 8080:80` **publishes** a container port to the host. Without `-p`, other containers on the same network can still reach it, but your laptop cannot.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "Which kind of mount is best for a database's data directory in production?",
+          "options": [
+            "A named volume",
+            "A bind mount to your home folder",
+            "No mount; keep data in the container",
+            "A mount to /tmp"
+          ],
+          "answer": 0,
+          "hint": "Docker manages it and it survives container removal.",
+          "explain": "Named volumes are Docker-managed and persist independently of the container, which is right for databases."
+        },
+        {
+          "type": "mcq",
+          "prompt": "On a user-defined bridge network, how does the api container reach the db container?",
+          "options": [
+            "By the container name db, resolved by Docker's DNS",
+            "By connecting to localhost:5432",
+            "By the host's public IP address",
+            "It cannot; containers are always isolated"
+          ],
+          "answer": 0,
+          "hint": "Service names become hostnames.",
+          "explain": "Docker's embedded DNS on a user-defined network resolves container names, so api connects to db:5432."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the docker run flag pair that publishes host port 5432 to container port 5432",
+          "answers": [
+            "-p 5432:5432",
+            "--publish 5432:5432"
+          ],
+          "hint": "Use -p with host:container.",
+          "explain": "-p 5432:5432 exposes Postgres on the host so tools on your machine can connect."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of wiring two containers together in order",
+          "items": [
+            "Create a network with docker network create appnet",
+            "Start the database container on that network with a name",
+            "Start the app container on the same network",
+            "Connect from the app using the database's container name"
+          ],
+          "explain": "A shared user-defined network plus names gives you working service discovery.",
+          "hint": "Network first, then both containers on it."
+        }
+      ]
+    },
+    {
+      "title": "Docker Compose",
+      "body": "**Docker Compose** describes a multi-service stack in one YAML file and brings it up with one command. It is the standard way to run \"my app plus its database\" locally.\n\n```yaml\nservices:\n  api:\n    build: .\n    ports:\n      - \"3000:3000\"\n    environment:\n      DATABASE_URL: postgres://app:secret@db:5432/app\n    depends_on:\n      db:\n        condition: service_healthy\n\n  db:\n    image: postgres:16\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: secret\n      POSTGRES_DB: app\n    volumes:\n      - dbdata:/var/lib/postgresql/data\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U app\"]\n      interval: 5s\n      retries: 10\n\nvolumes:\n  dbdata:\n```\n\nEach key under `services` becomes a container, and Compose puts them all on one network where service names are hostnames — so `api` reaches Postgres at `db:5432`.\n\n```\ndocker compose up -d        # build, create and start in the background\ndocker compose ps           # status\ndocker compose logs -f api  # follow one service's logs\ndocker compose exec api sh  # shell into a running service\ndocker compose down         # stop and remove (named volumes kept)\ndocker compose down -v      # also delete named volumes\n```\n\n`depends_on` controls **start order**, not readiness — Postgres accepts connections a few seconds after it starts. The `condition: service_healthy` form, paired with a `healthcheck`, removes that race so the API does not crash on boot.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What does depends_on actually guarantee?",
+          "options": [
+            "Start order only, not that the dependency is ready",
+            "That the dependency is fully healthy before starting",
+            "Network isolation between services",
+            "Automatic backups"
+          ],
+          "answer": 0,
+          "hint": "Starting a container and being ready to accept connections are different events.",
+          "explain": "depends_on orders startup; use a healthcheck with condition: service_healthy to wait for readiness."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the command that builds and starts the whole stack in the background",
+          "answers": [
+            "docker compose up -d",
+            "docker-compose up -d"
+          ],
+          "hint": "compose, then up, then detached.",
+          "explain": "docker compose up -d builds images, creates the network, and starts every service detached."
+        },
+        {
+          "type": "mcq",
+          "prompt": "In the compose file, how does the api service address the database?",
+          "options": [
+            "By the hostname db, the service name",
+            "By localhost",
+            "By 127.0.0.1:5432",
+            "By the container ID"
+          ],
+          "answer": 0,
+          "hint": "Compose registers each service name on the shared network.",
+          "explain": "The service name db is a DNS name on the Compose network, so the URL uses @db:5432."
+        },
+        {
+          "type": "order",
+          "prompt": "Put a typical Compose workflow in the correct order",
+          "items": [
+            "Write docker-compose.yaml (or compose.yaml)",
+            "docker compose up -d",
+            "docker compose logs -f api",
+            "docker compose down"
+          ],
+          "explain": "Describe the stack, start it, observe logs, then tear it down.",
+          "hint": "You write the file before you start anything."
+        }
+      ]
+    },
+    {
+      "title": "Kubernetes: Pods, Deployments and Services",
+      "body": "**Kubernetes** (K8s) runs containers across a **cluster** of **nodes**. You declare the desired state in YAML and controllers work to make reality match it — the reconcile loop.\n\n- A **Pod** is the smallest deployable unit: one or more containers sharing a network namespace and storage. Pods are cattle, not pets; they are recreated, never repaired.\n- A **Deployment** manages Pods through a ReplicaSet, keeping the chosen number running and performing **rolling updates**.\n- A **Service** gives a stable DNS name and virtual IP that load-balances across Pods, whose IPs keep changing.\n\n```bash\nkubectl apply -f deployment.yaml     # create or update from a file\nkubectl get pods                      # what is running\nkubectl get deployments               # desired vs ready replicas\nkubectl describe pod api-7c9f         # events — first stop when a pod is stuck\nkubectl logs api-7c9f -c api          # container logs\nkubectl exec -it api-7c9f -- sh       # shell inside a pod\nkubectl scale deployment api --replicas=5\nkubectl rollout status deployment/api\nkubectl rollout undo deployment/api   # roll back a bad release\n```\n\nA minimal Deployment sets `replicas`, a `selector`, and a pod template with the container `image`, `ports` and resource `requests`/`limits`. A Service of `type: ClusterIP` is internal; `LoadBalancer` or an Ingress exposes it to the internet.\n\nWhen debugging, read `kubectl describe` events before logs: `ImagePullBackOff`, `CrashLoopBackOff` and `OOMKilled` are the usual suspects.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the smallest deployable unit in Kubernetes?",
+          "options": [
+            "A Pod",
+            "A Deployment",
+            "A Service",
+            "A Node"
+          ],
+          "answer": 0,
+          "hint": "It wraps one or more containers that share a network namespace.",
+          "explain": "A Pod is the smallest unit; Deployments manage Pods and Services expose them."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does a Kubernetes Service provide?",
+          "options": [
+            "A stable DNS name and IP that load-balance across Pods",
+            "Persistent disk storage",
+            "Container images in a registry",
+            "A single physical server"
+          ],
+          "answer": 0,
+          "hint": "Pod IPs come and go, so you need something stable in front of them.",
+          "explain": "A Service gives a stable virtual IP and DNS name and balances traffic across the matching Pods."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the kubectl command that lists all Pods in the current namespace",
+          "answers": [
+            "kubectl get pods",
+            "kubectl get pod",
+            "kubectl get po"
+          ],
+          "hint": "get, then the resource, then optional short name.",
+          "explain": "kubectl get pods lists Pods with their status and age."
+        },
+        {
+          "type": "order",
+          "prompt": "Put this Pod debugging flow in the correct order",
+          "items": [
+            "kubectl get pods to spot the unhealthy Pod",
+            "kubectl describe pod to read the events",
+            "kubectl logs to read the container output",
+            "Fix the manifest and kubectl apply again"
+          ],
+          "explain": "Find it, describe it for events, read its logs, then fix and re-apply.",
+          "hint": "Describe shows events; logs show application output."
+        }
+      ]
+    },
+    {
+      "title": "Kubernetes Configuration and Storage",
+      "body": "Hard-coding a database URL or an API key into an image is a security and portability problem. Kubernetes separates **configuration** from the container.\n\nA **ConfigMap** holds non-sensitive key/value data; a **Secret** holds sensitive data (base64-encoded, and ideally encrypted at rest). Both can be injected as environment variables or mounted as files.\n\n```yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: api-config\ndata:\n  LOG_LEVEL: info\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: api\nspec:\n  containers:\n    - name: api\n      image: ghcr.io/acme/api:v2\n      envFrom:\n        - configMapRef:\n            name: api-config\n        - secretRef:\n            name: api-secret\n      resources:\n        requests:\n          cpu: 100m\n          memory: 128Mi\n        limits:\n          cpu: 500m\n          memory: 256Mi\n      readinessProbe:\n        httpGet:\n          path: /healthz\n          port: 8080\n```\n\n**Requests** are what the scheduler reserves; **limits** cap usage. Exceed a memory limit and the kernel kills the container — `OOMKilled`.\n\n**Probes** keep traffic away from unhealthy Pods. A `readinessProbe` removes a Pod from the Service until it passes; a `livenessProbe` restarts it.\n\nPod filesystems are ephemeral. A **PersistentVolumeClaim** asks for storage, and Kubernetes binds it to a **PersistentVolume** (often provisioned by a cloud **StorageClass**). The Pod mounts the claim by name, so the data outlives the Pod.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is the difference between a ConfigMap and a Secret?",
+          "options": [
+            "A ConfigMap is for non-sensitive data; a Secret is for sensitive data",
+            "A ConfigMap stores files; a Secret stores images",
+            "A Secret is unencrypted; a ConfigMap is encrypted",
+            "They are interchangeable with no difference"
+          ],
+          "answer": 0,
+          "hint": "Think about credentials versus ordinary settings.",
+          "explain": "ConfigMaps hold plain configuration; Secrets hold sensitive values and should be encrypted at rest."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does a readinessProbe control?",
+          "options": [
+            "Whether a Pod receives traffic from its Service",
+            "Whether a Pod is ever restarted",
+            "The CPU limit of the Pod",
+            "The image pull policy"
+          ],
+          "answer": 0,
+          "hint": "It gates traffic, not restart.",
+          "explain": "Until the readinessProbe passes, the Pod is removed from Service endpoints; livenessProbe handles restarts."
+        },
+        {
+          "type": "input",
+          "prompt": "Which Kubernetes object requests persistent storage that a Pod can mount? (give the full name)",
+          "answers": [
+            "PersistentVolumeClaim",
+            "persistentvolumeclaim",
+            "PersistentVolumeClaim (PVC)",
+            "pvc"
+          ],
+          "hint": "It is the claim, not the volume itself.",
+          "explain": "A PersistentVolumeClaim requests storage and binds to a PersistentVolume, outliving the Pod."
+        },
+        {
+          "type": "order",
+          "prompt": "Put the steps of giving a Pod persistent storage in the correct order",
+          "items": [
+            "Define a PersistentVolumeClaim requesting storage",
+            "Reference that claim as a volume in the Pod spec",
+            "Mount the volume into the container at a path",
+            "The data survives when the Pod is replaced"
+          ],
+          "explain": "Claim, reference, mount, persist — the claim is decoupled so data outlives the Pod.",
+          "hint": "You request storage with a claim before you mount it."
+        }
+      ]
+    },
+    {
+      "title": "Helm and Managed Kubernetes",
+      "body": "Writing YAML for every environment by hand does not scale. **Helm** is the package manager for Kubernetes: a **chart** is a folder of templated manifests, and **values** fill in the blanks.\n\n```bash\nhelm repo add bitnami https://charts.bitnami.com/bitnami\nhelm repo update\nhelm search repo postgresql\nhelm install mydb bitnami/postgresql -f values.yaml\nhelm upgrade mydb bitnami/postgresql --set auth.password=secret\nhelm list\nhelm rollback mydb 1\nhelm uninstall mydb\nhelm template mydb bitnami/postgresql   # render locally without installing\n```\n\nA chart has `Chart.yaml` (metadata), `values.yaml` (defaults), and `templates/` containing files with `{{ .Values.image.tag }}` placeholders. You override defaults with `-f prod-values.yaml` or `--set`. Helm tracks each install as a **release**, so `helm rollback` returns to a previous revision — far faster than re-applying manifests by hand.\n\n**Managed Kubernetes** removes control-plane operations. AWS **EKS**, Google **GKE** and Azure **AKS** run the API server and etcd for you; you manage node pools and workloads. All three provide a `kubeconfig`, so plain `kubectl` works unchanged.\n\nFor local development, **kind** (Kubernetes in Docker) and **minikube** spin up a single-node cluster on your laptop:\n\n```bash\nkind create cluster --name dev\nkubectl cluster-info\nkind delete cluster --name dev\n```\n\nLearn on kind, ship on EKS — the manifests are the same.",
+      "exercises": [
+        {
+          "type": "mcq",
+          "prompt": "What is a Helm chart?",
+          "options": [
+            "A package of templated Kubernetes manifests with default values",
+            "A running container image",
+            "A cloud provider's Kubernetes service",
+            "A type of Kubernetes Secret"
+          ],
+          "answer": 0,
+          "hint": "It is the unit you install and upgrade.",
+          "explain": "A chart packages templated manifests plus values, and Helm installs it as a release."
+        },
+        {
+          "type": "mcq",
+          "prompt": "What does helm rollback do?",
+          "options": [
+            "Returns a release to a previous revision",
+            "Deletes the cluster",
+            "Downloads a new chart version",
+            "Reverts your Git repository"
+          ],
+          "answer": 0,
+          "hint": "Helm remembers each install and upgrade as a numbered release.",
+          "explain": "Helm tracks releases as revisions, so rollback restores an earlier known-good state quickly."
+        },
+        {
+          "type": "input",
+          "prompt": "Write the helm command that renders a chart locally without installing it (chart reference: bitnami/postgresql, release name mydb)",
+          "answers": [
+            "helm template mydb bitnami/postgresql",
+            "helm template"
+          ],
+          "hint": "Helm has a command named after rendering templates.",
+          "explain": "helm template renders the manifests to stdout so you can review them before installing."
+        },
+        {
+          "type": "order",
+          "prompt": "Put a Helm workflow in the correct order",
+          "items": [
+            "helm repo add to register a chart repository",
+            "helm install to deploy a release",
+            "helm upgrade with new values",
+            "helm rollback if the upgrade goes wrong"
+          ],
+          "explain": "Add the repo, install, upgrade, and roll back if needed — all tracked as revisions.",
+          "hint": "You must add the repository before you can install from it."
+        }
+      ]
+    }
+  ]
+}
