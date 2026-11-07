@@ -1,0 +1,9 @@
+{
+  "name": "deskready",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DeskReady — application support job prep. Static PWA with cross-device sync.",
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  }
+}

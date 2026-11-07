@@ -10,6 +10,8 @@
   "use strict";
 
   const DONE_KEY = (c, l, e) => `deskready:done:${c}:${l}:${e}`;
+  const DONE_PREFIX = "deskready:done:";
+  const SYNC_CODE_KEY = "deskready:sync-code";
   const FONT_KEY = "deskready:font";
   const THEME_KEY = "deskready:theme";
   const SIZE_KEY = "deskready:textSize";
@@ -24,6 +26,7 @@
     dancing: '"Dancing Script", cursive',
   };
   const THEMES = ["night", "sepia", "light", "contrast"];
+  const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
   const $ = (sel) => document.querySelector(sel);
   const els = {
@@ -59,6 +62,11 @@
     font: $("#fontSelect"),
     theme: $("#themeSelect"),
     toast: $("#toast"),
+    syncBtn: $("#syncBtn"),
+    syncPanel: $("#syncPanel"),
+    syncInput: $("#syncInput"),
+    syncNewBtn: $("#syncNewBtn"),
+    syncStatus: $("#syncStatus"),
   };
 
   const state = {
@@ -69,6 +77,8 @@
     lessonIndex: 0,
     lessonWasComplete: false,
     sizeIndex: DEFAULT_SIZE_INDEX,
+    syncCode: "",
+    syncTimer: null,
   };
 
   /* ---------- markdown rendering ---------- */
@@ -96,6 +106,131 @@
 
   function writeSummary(courseId, done, total) {
     try { localStorage.setItem(`deskready:summary:${courseId}`, JSON.stringify({ done, total })); } catch { /* ignore */ }
+  }
+
+  /* ---------- cross-device sync (Vercel Blob via /api/progress) ---------- */
+
+  function genCode() {
+    let s = "";
+    for (let i = 0; i < 6; i++) s += CODE_ALPHABET[(Math.random() * CODE_ALPHABET.length) | 0];
+    return s;
+  }
+  function readCode() {
+    try { return String(localStorage.getItem(SYNC_CODE_KEY) || "").trim().toUpperCase(); } catch { return ""; }
+  }
+  function writeCode(code) {
+    try { localStorage.setItem(SYNC_CODE_KEY, String(code).toUpperCase()); } catch { /* ignore */ }
+  }
+  function ensureCode() {
+    const existing = readCode();
+    if (existing) return existing;
+    const fresh = genCode();
+    writeCode(fresh);
+    return fresh;
+  }
+  function getAllLocalDone() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(DONE_PREFIX)) out.push(k.slice(DONE_PREFIX.length).toLowerCase());
+      }
+    } catch { /* ignore */ }
+    return out.sort();
+  }
+  function applyDoneList(list) {
+    if (!Array.isArray(list)) return;
+    for (const id of list) {
+      const m = String(id).toLowerCase().match(/^([a-z0-9-]+):(\d+):(\d+)$/);
+      if (!m) continue;
+      try { localStorage.setItem(DONE_KEY(m[1], Number(m[2]), Number(m[3])), "1"); } catch { /* ignore */ }
+    }
+  }
+  function mergeDone(local, remote) {
+    const set = new Set(local.map((x) => String(x).toLowerCase()));
+    for (const x of remote || []) set.add(String(x).toLowerCase());
+    return [...set].sort();
+  }
+  function setSyncStatus(text, ok) {
+    if (!els.syncStatus) return;
+    els.syncStatus.textContent = text;
+    els.syncStatus.style.color = ok ? "var(--good)" : "var(--muted)";
+    if (els.syncBtn) els.syncBtn.textContent = `SYNC ${state.syncCode || "······"}`;
+    if (els.syncInput) els.syncInput.value = state.syncCode;
+  }
+  function recomputeSummaries() {
+    const local = getAllLocalDone();
+    const counts = {};
+    for (const id of local) {
+      const m = id.match(/^([a-z0-9-]+):\d+:\d+$/);
+      if (m) counts[m[1]] = (counts[m[1]] || 0) + 1;
+    }
+    if (state.catalog) {
+      for (const c of state.catalog) {
+        const total = c.exercises || 0;
+        const done = Math.min(total, counts[c.id] || 0);
+        writeSummary(c.id, done, total);
+      }
+    } else {
+      for (const [cid, done] of Object.entries(counts)) {
+        const s = readSummary(cid) || { done: 0, total: 0 };
+        writeSummary(cid, done, s.total || 0);
+      }
+    }
+    if (state.catalog && !els.library.hidden) renderLibrary(state.catalog);
+    if (state.course) {
+      updateCourseProgress();
+      renderLessonList();
+    }
+  }
+  async function fetchRemoteProgress(code) {
+    try {
+      const res = await fetch(`/api/progress?code=${encodeURIComponent(code)}`, { cache: "no-store" });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json.done) ? json.done : [];
+    } catch { return []; }
+  }
+  async function pushRemoteNow() {
+    const code = state.syncCode || ensureCode();
+    if (!code) return;
+    try {
+      const done = getAllLocalDone();
+      const res = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, done }),
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.done)) {
+          applyDoneList(json.done);
+          recomputeSummaries();
+        }
+        setSyncStatus(`Synced · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ✓`, true);
+      } else {
+        setSyncStatus("Sync unavailable · saved locally", false);
+      }
+    } catch {
+      setSyncStatus("Offline · saved locally", false);
+    }
+  }
+  function queuePush() {
+    if (state.syncTimer) clearTimeout(state.syncTimer);
+    state.syncTimer = setTimeout(() => { void pushRemoteNow(); }, 800);
+  }
+  async function pullAndMerge() {
+    const code = state.syncCode;
+    const remote = await fetchRemoteProgress(code);
+    if (!remote.length && !getAllLocalDone().length) {
+      setSyncStatus(`Code ${code} · saved locally`, true);
+      return;
+    }
+    const merged = mergeDone(getAllLocalDone(), remote);
+    applyDoneList(merged);
+    recomputeSummaries();
+    await pushRemoteNow();
   }
 
   function lessonDoneCount(course, lessonIndex) {
@@ -445,6 +580,7 @@
           summary.done += 1;
           summary.total = courseTotals(course).exercises;
           writeSummary(course.id, summary.done, summary.total);
+          queuePush();
           const lesson = course.lessons[lessonIndex];
           if (lessonDoneCount(course, lessonIndex) === lesson.exercises.length &&
               !state.lessonWasComplete) {
@@ -1107,7 +1243,37 @@
     }
   }
 
+  function initSyncUI() {
+    state.syncCode = ensureCode();
+    setSyncStatus(`Code ${state.syncCode} · synced`, true);
+    if (els.syncBtn) els.syncBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (els.syncPanel) els.syncPanel.hidden = !els.syncPanel.hidden;
+    });
+    document.addEventListener("click", (e) => {
+      if (els.syncPanel && !els.syncPanel.hidden && !els.syncPanel.contains(e.target) && e.target !== els.syncBtn) {
+        els.syncPanel.hidden = true;
+      }
+    });
+    const applyCode = async (code) => {
+      const clean = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+      if (clean.length !== 6) { setSyncStatus("Code must be 6 characters", false); return; }
+      writeCode(clean);
+      state.syncCode = clean;
+      setSyncStatus(`Switching to ${clean}…`, true);
+      await pullAndMerge();
+      toast("Sync updated");
+    };
+    if (els.syncInput) {
+      els.syncInput.addEventListener("change", () => { void applyCode(els.syncInput.value); });
+      els.syncInput.addEventListener("keydown", (e) => { if (e.key === "Enter") void applyCode(els.syncInput.value); });
+    }
+    if (els.syncNewBtn) els.syncNewBtn.addEventListener("click", () => { void applyCode(genCode()); });
+    void pullAndMerge();
+  }
+
   function init() {
+    initSyncUI();
     els.font.addEventListener("change", () => applyFont(els.font.value));
     applyFont(localStorage.getItem(FONT_KEY) || "atkinson");
     els.theme.addEventListener("change", () => applyTheme(els.theme.value));
