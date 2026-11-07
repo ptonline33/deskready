@@ -156,6 +156,12 @@ body {
 .pill-mini { padding: 6px 10px; }
 .sync-status { margin: 10px 0 0; font-size: .85rem; color: var(--good); font-weight: 700; }
 .sync-tip { margin: 6px 0 0; font-size: .8rem; color: var(--muted); }
+.install-btn {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #0a1020;
+  border-color: transparent;
+}
+.install-btn:hover { border-color: transparent; filter: brightness(1.1); }
 .font-pick { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--muted); font-size: 0.95rem; }
 select {
   font: inherit;

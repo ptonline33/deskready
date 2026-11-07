@@ -67,6 +67,7 @@
     syncInput: $("#syncInput"),
     syncNewBtn: $("#syncNewBtn"),
     syncStatus: $("#syncStatus"),
+    install: $("#installBtn"),
   };
 
   const state = {
@@ -79,6 +80,7 @@
     sizeIndex: DEFAULT_SIZE_INDEX,
     syncCode: "",
     syncTimer: null,
+    view: "library",
   };
 
   /* ---------- markdown rendering ---------- */
@@ -256,6 +258,7 @@
   }
 
   function showView(name) {
+    state.view = name;
     els.library.hidden = name !== "library";
     els.course.hidden = name !== "course";
     els.lesson.hidden = name !== "lesson";
@@ -265,6 +268,61 @@
     els.progressPill.hidden = name === "library" || name === "plan";
     els.readTools.hidden = !reading;
     document.body.classList.toggle("reading", reading);
+    updateInstallBtn();
+  }
+
+  /* ---------- install (PWA) ---------- */
+
+  let deferredPrompt = null;
+  let installOutcome = "";
+
+  function isStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+  }
+  function isIOS() {
+    return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+  function canInstall() {
+    if (isStandalone() || installOutcome) return false;
+    return Boolean(deferredPrompt) || isIOS();
+  }
+  function updateInstallBtn() {
+    if (!els.install) return;
+    els.install.hidden = state.view !== "library" || !canInstall();
+  }
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    updateInstallBtn();
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    installOutcome = "accepted";
+    updateInstallBtn();
+    toast("DeskReady installed.");
+  });
+  function initInstallBtn() {
+    if (!els.install) return;
+    els.install.addEventListener("click", async () => {
+      if (!deferredPrompt) {
+        if (isIOS()) toast('On iPhone: tap Share, then "Add to Home Screen".');
+        return;
+      }
+      const evt = deferredPrompt;
+      deferredPrompt = null;
+      els.install.hidden = true;
+      try {
+        await evt.prompt();
+        const { outcome } = await evt.userChoice;
+        installOutcome = outcome;
+        if (outcome === "accepted") toast("Installing DeskReady…");
+        else updateInstallBtn();
+      } catch {
+        updateInstallBtn();
+      }
+    });
   }
 
   /* ---------- reading preferences (font, size, theme) ---------- */
@@ -1274,6 +1332,8 @@
 
   function init() {
     initSyncUI();
+    initInstallBtn();
+    updateInstallBtn();
     els.font.addEventListener("change", () => applyFont(els.font.value));
     applyFont(localStorage.getItem(FONT_KEY) || "atkinson");
     els.theme.addEventListener("change", () => applyTheme(els.theme.value));

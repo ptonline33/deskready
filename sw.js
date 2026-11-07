@@ -1,6 +1,6 @@
 /* DeskReady service worker: app shell cached up front, course JSON refreshed
  * from the network so new content shows up, fonts and scripts served offline. */
-const VERSION = "deskready-v5";
+const VERSION = "deskready-v6";
 const SHELL = [
   "./",
   "index.html",
