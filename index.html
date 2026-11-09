@@ -18,7 +18,7 @@
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
 
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <button id="homeBtn" class="pill" type="button" hidden>&larr; Library</button>
     <a class="brand" href="#/">DeskReady</a>
     <div class="sync-wrap">
@@ -58,7 +58,19 @@
       </label>
     </div>
     <span id="progressPill" class="progress-pill" hidden></span>
+    <button id="headerToggle" class="pill header-toggle" type="button"
+            aria-expanded="true" aria-controls="topbar" aria-label="Minimize header"
+            title="Minimize header">
+      <span class="toggle-icon" aria-hidden="true">▴</span>
+      <span class="toggle-text">Hide header</span>
+    </button>
   </header>
+
+  <!-- When the (non-sticky) header has scrolled away, this is the reopen handle. -->
+  <button id="headerReopen" class="header-reopen" type="button" hidden
+          aria-label="Show header" title="Show header">
+    <span aria-hidden="true">▾</span> <span>Show header</span>
+  </button>
 
   <main>
     <section id="libraryView" class="view">

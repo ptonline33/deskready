@@ -92,6 +92,55 @@ body {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Inside a course, lesson or plan the header scrolls away with the content
+   instead of staying pinned while reading. Applies at every screen size. */
+body.in-course .topbar { position: static; }
+
+/* Minimized state: keep navigation (Library button) and the reopen control,
+   hide the tool cluster so the bar becomes a slim strip. */
+body.header-minimized .topbar {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  gap: 8px;
+}
+body.header-minimized .topbar .sync-wrap,
+body.header-minimized .topbar .install-btn,
+body.header-minimized .topbar .top-tools,
+body.header-minimized .topbar .progress-pill {
+  display: none;
+}
+body.header-minimized .brand { font-size: 1.15rem; }
+
+.header-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.header-toggle .toggle-icon { font-size: 1rem; line-height: 1; }
+
+/* Floating handle shown only when a minimized header is off-screen. */
+.header-reopen {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 60;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(10, 16, 32, 0.92);
+  border: 1px solid var(--accent-2);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+.header-reopen:hover { border-color: var(--accent); }
+.header-reopen[hidden] { display: none; }
 .brand {
   font-weight: 700;
   font-size: 1.5rem;

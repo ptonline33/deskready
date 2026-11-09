@@ -15,6 +15,7 @@
   const FONT_KEY = "deskready:font";
   const THEME_KEY = "deskready:theme";
   const SIZE_KEY = "deskready:textSize";
+  const HEADER_KEY = "deskready:header-minimized";
   const SIZES = [1, 1.1, 1.25, 1.4, 1.6, 1.8, 2]; // rem (html root is 18px)
   const DEFAULT_SIZE_INDEX = 1; // 1.1rem, matches the original lesson text
   const FONTS = {
@@ -68,6 +69,9 @@
     syncNewBtn: $("#syncNewBtn"),
     syncStatus: $("#syncStatus"),
     install: $("#installBtn"),
+    topbar: $("#topbar"),
+    headerToggle: $("#headerToggle"),
+    headerReopen: $("#headerReopen"),
   };
 
   const state = {
@@ -81,6 +85,7 @@
     syncCode: "",
     syncTimer: null,
     view: "library",
+    headerMinimized: false,
   };
 
   /* ---------- markdown rendering ---------- */
@@ -257,6 +262,49 @@
     toast.timer = setTimeout(() => { els.toast.hidden = true; }, 3200);
   }
 
+  /* ---------- header: minimize / reopen (all screen sizes) ---------- */
+
+  function updateReopenVisibility() {
+    if (!els.headerReopen || !els.topbar) return;
+    const offscreen = els.topbar.getBoundingClientRect().bottom <= 0;
+    els.headerReopen.hidden = !(state.headerMinimized && offscreen);
+  }
+
+  function setHeaderMinimized(minimized) {
+    state.headerMinimized = minimized;
+    document.body.classList.toggle("header-minimized", minimized);
+    try { localStorage.setItem(HEADER_KEY, minimized ? "1" : "0"); } catch { /* ignore */ }
+
+    if (els.headerToggle) {
+      els.headerToggle.setAttribute("aria-expanded", String(!minimized));
+      const label = minimized ? "Show header" : "Minimize header";
+      els.headerToggle.setAttribute("aria-label", label);
+      els.headerToggle.title = label;
+      const icon = els.headerToggle.querySelector(".toggle-icon");
+      const text = els.headerToggle.querySelector(".toggle-text");
+      if (icon) icon.textContent = minimized ? "▾" : "▴";
+      if (text) text.textContent = minimized ? "Show header" : "Hide header";
+    }
+    updateReopenVisibility();
+  }
+
+  function initHeaderUI() {
+    let saved = false;
+    try { saved = localStorage.getItem(HEADER_KEY) === "1"; } catch { /* ignore */ }
+    setHeaderMinimized(saved);
+
+    els.headerToggle.addEventListener("click", () => {
+      setHeaderMinimized(!state.headerMinimized);
+    });
+    els.headerReopen.addEventListener("click", () => {
+      setHeaderMinimized(false);
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+    window.addEventListener("scroll", updateReopenVisibility, { passive: true });
+    window.addEventListener("resize", updateReopenVisibility);
+  }
+
   function showView(name) {
     state.view = name;
     els.library.hidden = name !== "library";
@@ -268,7 +316,11 @@
     els.progressPill.hidden = name === "library" || name === "plan";
     els.readTools.hidden = !reading;
     document.body.classList.toggle("reading", reading);
+    // In a course/lesson/plan the header scrolls with the page; only the
+    // library keeps it pinned. (CSS: body.in-course .topbar)
+    document.body.classList.toggle("in-course", name !== "library");
     updateInstallBtn();
+    updateReopenVisibility();
   }
 
   /* ---------- install (PWA) ---------- */
@@ -1331,6 +1383,7 @@
   }
 
   function init() {
+    initHeaderUI();
     initSyncUI();
     initInstallBtn();
     updateInstallBtn();
